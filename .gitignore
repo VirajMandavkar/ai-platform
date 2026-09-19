@@ -1,0 +1,30 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Test binaries
+*.test
+
+# Go workspace local state (commit go.work, ignore local overrides if any)
+# keeping go.work tracked for monorepos
+
+# Environment & secrets (CRITICAL: never commit LLM keys)
+.env
+*.env.local
+*.pem
+*.key
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*~
+
+# Node/Vite (future-proofing for phase 3)
+node_modules/
+.npm
