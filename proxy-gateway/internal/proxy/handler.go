@@ -59,3 +59,25 @@ func NewHandler(cfg Config) *Handler {
 		apiKey:  cfg.APIKey,
 	}
 }
+
+// ServeHTTP implements http.Handler.
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Detect priority: default to Standard, promote if flagged by agent sandbox
+	priority := limiter.StandardPriority
+	if r.Header.Get("X-Agent-Priority") == "high" {
+		priority = limiter.HighPriority
+	}
+
+	// 1. Acquire concurrency slot (sleeps if active >= limit, aborts on client disconnect)
+	if err := h.limiter.Acquire(r.Context(), priority); err != nil {
+		// Client dropped connection while queued
+		http.Error(w, "Request canceled while queued", http.StatusRequestTimeout)
+		return
+	}
+
+	// 2. Guarantee slot is returned when request completes or fails
+	defer h.limiter.Release()
+
+	// 3. Delegate to reverse proxy
+	h.proxy.ServeHTTP(w, r)
+}
