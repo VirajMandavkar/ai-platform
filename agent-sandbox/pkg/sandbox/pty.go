@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/creack/pty"
 )
 
 // PTYSession holds the virtual terminal file and the running process.
@@ -16,5 +18,19 @@ type PTYSession struct {
 
 // StartSession spawns a command inside a PTY with a strict timeout.
 func StartSession(timeout time.Duration, command string, args ...string) (*PTYSession, error) {
-	ctx, cancel := contect.WithTime
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+
+	cmd := exec.CommandContext(ctx, command, args...)
+
+	ptmx, err := pty.Start(cmd)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
+	return &PTYSession{
+		PTY:       ptmx,
+		Cmd:       cmd,
+		cancelCtx: cancel,
+	}, nil
 }

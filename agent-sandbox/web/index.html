@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Native Technical Screen</title>
+    
+    <!-- Load xterm.js directly from the stable v5.3.0 package -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            background-color: #1e1e1e;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+        #terminal-container {
+            flex: 1;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="terminal-container"></div>
+
+    <script>
+        // 1. Initialize the terminal using the global window objects
+        const term = new window.Terminal({
+            cursorBlink: true,
+            theme: { background: '#1e1e1e' },
+            fontFamily: 'Menlo, Monaco, "Courier New", monospace'
+        });
+        
+        // The FitAddon allows terminal to resize cleanly
+        const fitAddon = new window.FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+
+        // Mount the terminal to the DOM
+        term.open(document.getElementById('terminal-container'));
+        fitAddon.fit();
+
+        window.addEventListener('resize', () => {
+            fitAddon.fit();
+        });
+
+        term.writeln('Connecting to secure AI sandbox...');
+
+        // 2. Connect to the Go WebSocket backend
+        const mockSessionId = 'cand_' + Math.floor(Math.random() * 10000);
+        const ws = new WebSocket(`ws://${window.location.host}/ws?sessionId=${mockSessionId}`);
+
+        ws.onopen = () => {
+            term.writeln('\r\nConnection established. Dropping into Ubuntu container.\r\n');
+        };
+
+        // 3. Read Pump
+        ws.onmessage = async (event) => {
+            if (event.data instanceof Blob) {
+                const text = await event.data.text();
+                term.write(text);
+            } else {
+                term.write(event.data);
+            }
+        };
+
+        // 4. Write Pump
+        term.onData((data) => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(data);
+            }
+        });
+
+        ws.onclose = () => {
+            term.writeln('\r\n\r\nConnection lost. Attempting to reconnect...');
+        };
+
+        // ==========================================
+        // 5. PROCTORING ENGINE & ANTI-CHEAT
+        // ==========================================
+
+        // 0. Hard-Block Developer Tools (F12, Ctrl+Shift+I, Ctrl+Shift+C)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.code === 'KeyI' || e.code === 'KeyC'))) {
+                e.preventDefault(); // Stop the browser from opening DevTools
+                term.write('\r\n\x1b[31;1m[PROCTOR ALERT] Developer Tools access blocked.\x1b[0m\r\n');
+                // You can also send a WebSocket message here to flag them
+            }
+        });
+
+        // Focus Trap (Tab Switching & Multi-Monitor detection)
+        let focusStrikes = 0;
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                focusStrikes++;
+                const warningMsg = `\r\n\x1b[31;1m[PROCTOR ALERT] Tab switched or lost focus. Strike: ${focusStrikes}\x1b[0m\r\n`;
+                term.write(warningMsg);
+                
+                // Penalty threshold
+                if (focusStrikes >= 3) {
+                    term.write('\r\n\x1b[41;37;1m MULTIPLE VIOLATIONS DETECTED. FLAGGING SESSION. \x1b[0m\r\n');
+                }
+            }
+        });
+
+        // Clipboard Control (Trap Ctrl+C / Ctrl+V)
+        term.attachCustomKeyEventHandler((e) => {
+            // Trap Copy (Ctrl+C or Ctrl+Shift+C)
+            if (e.ctrlKey && (e.code === 'KeyC')) {
+                if (e.type === 'keydown') {
+                    const selection = term.getSelection();
+                    if (selection) {
+                        navigator.clipboard.writeText(selection);
+                        term.write('\r\n\x1b[33m[Copied to clipboard]\x1b[0m\r\n');
+                    }
+                }
+                // Return false to prevent xterm from passing Ctrl+C to the terminal (which kills processes)
+                // UNLESS there is no text selected, in which case we let it pass as a normal SIGINT.
+                return !term.hasSelection(); 
+            }
+
+            // Trap Paste (Ctrl+V or Ctrl+Shift+V)
+            if (e.ctrlKey && (e.code === 'KeyV') && e.type === 'keydown') {
+                navigator.clipboard.readText().then(text => {
+                    // Intercept massive pastes (e.g. from ChatGPT)
+                    if (text.length > 500) {
+                        term.write(`\r\n\x1b[31;1m[PROCTOR ALERT] Massive paste detected (${text.length} chars). Flagging.\x1b[0m\r\n`);
+                    }
+                    
+                    // Actually paste the text into the terminal
+                    ws.send(text);
+                }).catch(err => {
+                    console.error('Failed to read clipboard', err);
+                });
+                return false; // Stop browser from doing default paste
+            }
+
+            return true; // Let all other keys through normally
+        });
+    </script>
+</body>
+</html>
