@@ -28,11 +28,15 @@ func (m *Manager) CreateAndStart(sessionID string) (*PTYSession, error) {
 		return nil, errors.New("session already exists")
 	}
 
-	// The Bridge: Instead of running `bash` on the host, we execute it inside the locked-down container.
-	// Container name MUST match what you passed to `docker run --name` (ai-sandbox-1).
+	// The Bridge: Execute bash with the Gateway environment variables forced injected
 	session, err := StartSession(
 		60*time.Minute,
-		"docker", "exec", "-it", "ai-sandbox-1", "/bin/bash",
+		"docker", "exec",
+		"-it",
+		"-e", "ANTHROPIC_AUTH_TOKEN=mock-candidate-token", // Bypasses the Claude login screen
+		"-e", "ANTHROPIC_BASE_URL=http://host.docker.internal:8080", // Routes to your Go Proxy
+		"ai-sandbox-1",
+		"/bin/bash",
 	)
 	if err != nil {
 		return nil, err

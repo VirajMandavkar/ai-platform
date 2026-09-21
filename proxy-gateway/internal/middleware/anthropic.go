@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -20,7 +21,11 @@ type SystemBlock struct {
 	CacheControl *CacheControl `json:"cache_control,omitempty"`
 }
 
-// PromptCacheMiddleware intercepts /v1/messages erquests and ensures the static system prompts is tagged for Anthropic's ephemeral prompt caching
+const leanSystemPrompt = `You are Claude, an expert CLI coding assistant inside an Ubuntu sandbox. 
+Be extremely concise. When asked to write code or scripts, output only the clean code or bash commands with minimal explanation.`
+
+// PromptCacheMiddleware intercepts /v1/messages, swaps out the bloated 22k system prompt,
+// and passes a lean prompt to llama-server for instant CPU inference.
 func PromptCacheMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/v1/messages" {
@@ -30,29 +35,27 @@ func PromptCacheMiddleware(next http.Handler) http.Handler {
 
 		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, "Failed to read request Body", http.StatusBadRequest)
+			http.Error(w, "Failed to read request body", http.StatusBadRequest)
 			return
 		}
 		_ = r.Body.Close()
 
 		var payload map[string]any
-
 		if err := json.Unmarshal(bodyBytes, &payload); err != nil {
 			r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		modified := false
-		if rawSystem, exists := payload["system"]; exists && rawSystem != nil {
-			modified = injectSystemCacheControl(payload, rawSystem)
+		// Replace the 22k-token Anthropic system prompt with our lean CPU-friendly prompt
+		if _, exists := payload["system"]; exists {
+			log.Println("[proxy] Stripping 22k Claude Code system prompt down to lean CPU prompt")
+			payload["system"] = leanSystemPrompt
 		}
 
-		if modified {
-			newBytes, err := json.Marshal(payload)
-			if err == nil {
-				bodyBytes = newBytes
-			}
+		newBytes, err := json.Marshal(payload)
+		if err == nil {
+			bodyBytes = newBytes
 		}
 
 		r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
