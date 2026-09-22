@@ -76,6 +76,7 @@ func main() {
 	http.HandleFunc("/api/telemetry/report", telemetry.HandleGetScorecard)
 	http.HandleFunc("/api/telemetry/playback", telemetry.HandleGetPlayback)
 	http.HandleFunc("/api/cohort/auth", sandbox.HandleCohortAuth)
+	http.HandleFunc("/api/interview/verify", sandbox.HandleVerifyCandidate)
 
 	// Admin API - Auth
 	http.HandleFunc("/api/admin/login", sandbox.HandleAdminLogin)

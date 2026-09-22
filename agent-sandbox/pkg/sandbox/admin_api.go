@@ -214,3 +214,89 @@ func HandleListInterviews(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(list)
 }
+
+// HandleVerifyCandidate checks candidate identity against the session before granting sandbox entry
+func HandleVerifyCandidate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Token string `json:"token"`
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	token := strings.TrimSpace(req.Token)
+	name := strings.TrimSpace(req.Name)
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+
+	// Allow demo tokens without strict match
+	if strings.HasPrefix(token, "demo") || strings.HasPrefix(token, "cand_demo") || token == "" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"verified":       true,
+			"candidate_name": name,
+			"scenario_title": "Fix Priority Queue Slot Leak (Go)",
+		})
+		return
+	}
+
+	var candName, candEmail, scenarioTitle string
+	err := DB.QueryRow(`SELECT candidate_name, candidate_email, scenario_title FROM interviews WHERE id = ?`, token).
+		Scan(&candName, &candEmail, &scenarioTitle)
+	if err == nil {
+		// Verify email matches HR registration
+		if !strings.EqualFold(strings.TrimSpace(candEmail), email) {
+			http.Error(w, "Candidate email does not match the assessment record for this invite.", http.StatusForbidden)
+			return
+		}
+
+		// Transition status to IN_PROGRESS upon verification
+		_, _ = DB.Exec(`UPDATE interviews SET status = 'IN_PROGRESS' WHERE id = ? AND status = 'INVITED'`, token)
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"verified":       true,
+			"candidate_name": candName,
+			"scenario_title": scenarioTitle,
+		})
+		return
+	}
+
+	// Also check cohorts table if token matches a cohort ID
+	var cohortTitle, scenarioID, authEmailsStr string
+	cohortErr := DB.QueryRow(`SELECT title, scenario_id, authorized_emails FROM cohorts WHERE id = ?`, token).
+		Scan(&cohortTitle, &scenarioID, &authEmailsStr)
+	if cohortErr == nil {
+		var authorizedEmails []string
+		_ = json.Unmarshal([]byte(authEmailsStr), &authorizedEmails)
+		authorized := len(authorizedEmails) == 0
+		for _, ae := range authorizedEmails {
+			if strings.EqualFold(strings.TrimSpace(ae), email) {
+				authorized = true
+				break
+			}
+		}
+		if !authorized {
+			http.Error(w, "Candidate email is not on the authorized cohort roster for this assessment.", http.StatusForbidden)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"verified":       true,
+			"candidate_name": name,
+			"scenario_title": cohortTitle,
+		})
+		return
+	}
+
+	http.Error(w, "Assessment session not found or invalid token.", http.StatusNotFound)
+}
+
