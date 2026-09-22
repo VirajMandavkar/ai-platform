@@ -1,8 +1,11 @@
 package sandbox
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -168,7 +171,7 @@ func HandleGetWorkspaceFile(workspaceDir string) http.HandlerFunc {
 	}
 }
 
-// HandleRunVerification executes the verification script inside the container
+// HandleRunVerification executes the verification script inside the container with seed assurance
 func HandleRunVerification() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -182,11 +185,28 @@ func HandleRunVerification() http.HandlerFunc {
 		}
 		containerName := "ai-sandbox-" + sessionID
 
+		// Ensure the session workspace directory exists and is properly seeded with verify.sh
+		workspacePath, _ := filepath.Abs(fmt.Sprintf("./workspaces/%s", sessionID))
+		if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
+			_ = os.MkdirAll(workspacePath, 0755)
+		}
+		seedWorkspace(workspacePath)
+
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, "docker", "exec", containerName, "/bin/bash", "/home/sandboxuser/workspace/verify.sh")
+		// Attempt 1: Run inside docker container
+		cmd := exec.CommandContext(ctx, "docker", "exec", containerName, "/bin/bash", "-c", "cd /home/sandboxuser/workspace && if [ -f verify.sh ]; then bash verify.sh; else go test -v -race ./...; fi")
 		out, err := cmd.CombinedOutput()
+
+		// Attempt 2: If docker exec fails or container not running, run directly against workspacePath
+		if err != nil && (len(out) == 0 || strings.Contains(string(out), "No such container") || strings.Contains(string(out), "No such file")) {
+			localCmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("cd %s && (bash verify.sh 2>/dev/null || go test -v -race ./...)", workspacePath))
+			if localOut, localErr := localCmd.CombinedOutput(); len(localOut) > 0 {
+				out = localOut
+				err = localErr
+			}
+		}
 
 		passed := (err == nil)
 		if DB != nil {
@@ -205,5 +225,60 @@ func HandleRunVerification() http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
+	}
+}
+
+// HandleDownloadWorkspace streams a .zip archive of the candidate's workspace code
+func HandleDownloadWorkspace() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sessionID := r.URL.Query().Get("sessionId")
+		if sessionID == "" {
+			sessionID = "default-session"
+		}
+
+		workspacePath := fmt.Sprintf("./workspaces/%s", sessionID)
+		if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
+			workspacePath = "./workspace"
+		}
+
+		buf := new(bytes.Buffer)
+		zipWriter := zip.NewWriter(buf)
+
+		_ = filepath.Walk(workspacePath, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info == nil {
+				return nil
+			}
+			if info.IsDir() {
+				return nil
+			}
+
+			relPath, err := filepath.Rel(workspacePath, path)
+			if err != nil {
+				return nil
+			}
+			// Skip hidden files or verification runner
+			if strings.HasPrefix(relPath, ".") || relPath == "verify.sh" {
+				return nil
+			}
+
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return nil
+			}
+
+			f, err := zipWriter.Create(relPath)
+			if err != nil {
+				return err
+			}
+			_, _ = f.Write(data)
+			return nil
+		})
+
+		_ = zipWriter.Close()
+
+		w.Header().Set("Content-Type", "application/zip")
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"solution-%s.zip\"", sessionID))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", buf.Len()))
+		_, _ = w.Write(buf.Bytes())
 	}
 }

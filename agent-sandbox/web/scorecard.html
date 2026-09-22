@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assessment Concluded | VibeScout</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex flex-col selection:bg-blue-600 selection:text-white">
+
+    <!-- Top Navigation -->
+    <header class="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-8 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm shadow">
+                <i data-lucide="terminal" class="w-4 h-4"></i>
+            </div>
+            <span class="font-bold text-base tracking-tight text-slate-100">VibeScout Sandbox</span>
+        </div>
+
+        <div class="flex items-center gap-3 text-xs">
+            <span class="text-slate-400 font-mono">Session: <span id="header-token-display" class="text-blue-400 font-bold">...</span></span>
+            <span class="h-4 w-px bg-slate-800"></span>
+            <span id="session-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                SESSION CONCLUDED
+            </span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-4xl mx-auto w-full p-6 sm:p-10 space-y-8">
+        
+        <!-- Status Banner -->
+        <div id="status-card" class="bg-slate-900 rounded-2xl border border-slate-800 p-6 sm:p-8 shadow-xl relative overflow-hidden">
+            <div id="status-accent-bar" class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-emerald-500"></div>
+
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                <div class="flex items-start gap-4">
+                    <div id="status-icon-box" class="w-12 h-12 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0">
+                        <i data-lucide="check-circle" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h1 id="status-title" class="text-xl sm:text-2xl font-black text-white tracking-tight">Assessment Session Concluded</h1>
+                        <p id="status-desc" class="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl leading-relaxed">
+                            Thank you for participating. Your code submission and AI collaboration history have been recorded and delivered to the hiring team for technical review.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex sm:flex-col items-center sm:items-end gap-2 shrink-0">
+                    <a id="download-zip-btn" href="#" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-blue-600/20">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Download Solution (.zip)</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Takeaway 1: Solution Code Archive Download -->
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 sm:p-8 shadow-lg space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                        <i data-lucide="folder-archive" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-sm text-white">Your Solution Code Archive</h2>
+                        <p class="text-xs text-slate-400">Download a complete zip of all code files you authored during this session.</p>
+                    </div>
+                </div>
+                <a id="download-zip-btn-alt" href="#" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i> Export Zip
+                </a>
+            </div>
+
+            <div class="bg-slate-950 rounded-xl p-4 border border-slate-800/80 font-mono text-xs text-slate-400 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-slate-300">
+                    <i data-lucide="file-code" class="w-4 h-4 text-emerald-400"></i>
+                    <span id="zip-filename-display">solution-session.zip</span>
+                </div>
+                <span class="text-[11px] text-slate-500">Go Source Code & Implementation</span>
+            </div>
+        </div>
+
+        <!-- Takeaway 2: Candidate Prompts Transcript & Extraction -->
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 p-6 sm:p-8 shadow-lg space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-400 flex items-center justify-center font-bold text-xs">
+                        <i data-lucide="message-square-code" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-sm text-white">Your AI Prompts Transcript</h2>
+                        <p class="text-xs text-slate-400">Review and export the prompt instructions you provided to Claude Code.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="copyAllPrompts()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 border border-slate-700">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy All
+                    </button>
+                    <button onclick="downloadPromptsJSON()" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i> Export Prompts (.json)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Prompts Scroll List -->
+            <div id="prompts-list" class="space-y-3 max-h-96 overflow-y-auto pr-1">
+                <div class="p-6 text-center text-slate-500 text-xs">Loading prompt records...</div>
+            </div>
+        </div>
+
+        <!-- Return / Help Footer -->
+        <div class="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-slate-800/80 text-xs text-slate-500 gap-4">
+            <div>Questions regarding next steps? Please reply directly to your hiring coordinator's invitation email.</div>
+            <a href="/" class="text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition">
+                Return to VibeScout Homepage <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </a>
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        // Extract session ID
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionID = urlParams.get('sessionId') || urlParams.get('token') || 'cand_demo';
+        document.getElementById('header-token-display').textContent = sessionID;
+        document.getElementById('zip-filename-display').textContent = `candidate-solution-${sessionID}.zip`;
+
+        // Wire download links
+        const downloadUrl = `/api/workspace/download?sessionId=${encodeURIComponent(sessionID)}`;
+        document.getElementById('download-zip-btn').href = downloadUrl;
+        document.getElementById('download-zip-btn-alt').href = downloadUrl;
+
+        let promptsData = [];
+
+        async function loadReport() {
+            try {
+                const res = await fetch(`/api/telemetry/report?sessionId=${encodeURIComponent(sessionID)}`);
+                const data = await res.json();
+
+                // If session was terminated due to integrity penalty strikes
+                const isTerminated = (data.candidate_summary?.verdict || '').includes('DISQUALIFIED') || 
+                                     (data.candidate_summary?.verdict || '').includes('NO_HIRE');
+                
+                // Check if terminated due to violations
+                if (data.integrity_timeline && data.integrity_timeline.some(e => e.type === 'LOCKOUT')) {
+                    const lockouts = data.integrity_timeline.filter(e => e.type === 'LOCKOUT');
+                    if (lockouts.length >= 3) {
+                        const statusCard = document.getElementById('status-card');
+                        const accentBar = document.getElementById('status-accent-bar');
+                        const iconBox = document.getElementById('status-icon-box');
+                        const titleEl = document.getElementById('status-title');
+                        const descEl = document.getElementById('status-desc');
+                        const sessionBadge = document.getElementById('session-badge');
+
+                        accentBar.className = "absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-rose-600";
+                        iconBox.className = "w-12 h-12 rounded-xl bg-amber-600/20 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0";
+                        iconBox.innerHTML = '<i data-lucide="shield-alert" class="w-6 h-6"></i>';
+                        titleEl.textContent = "Assessment Session Closed";
+                        descEl.textContent = "This proctored session concluded because the window monitor threshold was reached (exited fullscreen / multiple window blurs). Your workspace files and prompt history up to this point have been archived for recruiter review.";
+                        sessionBadge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-800";
+                        sessionBadge.textContent = "PROCTORING LIMIT REACHED";
+                    }
+                }
+
+                // Render candidate prompts
+                promptsData = data.candidate_prompts || [
+                    { time: "02:15", prompt: "claude: Build high-concurrency token bucket limiter with priority queue support in Go." },
+                    { time: "11:40", prompt: "Fix race condition under parallel load in TestBucketLeak." },
+                    { time: "24:30", prompt: "Verify package imports and run full automated verification script." }
+                ];
+
+                renderPrompts(promptsData);
+                lucide.createIcons();
+            } catch (err) {
+                console.error("Error loading candidate takeaway data:", err);
+            }
+        }
+
+        function renderPrompts(prompts) {
+            const container = document.getElementById('prompts-list');
+            container.innerHTML = '';
+
+            prompts.forEach((p, idx) => {
+                const item = document.createElement('div');
+                item.className = "p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1.5";
+                item.innerHTML = `
+                    <div class="flex items-center justify-between text-[11px] font-mono text-slate-500">
+                        <span class="text-purple-400 font-bold">Prompt #${idx + 1}</span>
+                        <span>T+${p.time || '00:00'}</span>
+                    </div>
+                    <pre class="font-mono text-slate-200 whitespace-pre-wrap leading-relaxed select-text">${p.prompt}</pre>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function copyAllPrompts() {
+            if (!promptsData || promptsData.length === 0) return;
+            const fullText = promptsData.map((p, i) => `[Prompt #${i + 1} at T+${p.time || '00:00'}]\n${p.prompt}\n`).join('\n---\n\n');
+            navigator.clipboard.writeText(fullText);
+            alert("All prompts copied to clipboard!");
+        }
+
+        function downloadPromptsJSON() {
+            if (!promptsData || promptsData.length === 0) return;
+            const blob = new Blob([JSON.stringify({ sessionId: sessionID, exportedAt: new Date().toISOString(), prompts: promptsData }, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `candidate-prompts-${sessionID}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        loadReport();
+    </script>
+</body>
+</html>

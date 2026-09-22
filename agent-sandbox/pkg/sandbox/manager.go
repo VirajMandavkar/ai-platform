@@ -40,6 +40,7 @@ func (m *Manager) CreateAndStart(sessionID string) (*PTYSession, error) {
 	// Create unique workspace directory for isolation
 	workspacePath, _ := filepath.Abs(fmt.Sprintf("./workspaces/%s", sessionID))
 	_ = os.MkdirAll(workspacePath, 0755)
+	seedWorkspace(workspacePath)
 
 	// 1. Try launching dynamic container for session isolation
 	startCmd := exec.Command("docker", "run", "-d",
@@ -117,5 +118,42 @@ func (m *Manager) TerminateSession(sessionID string) {
 		log.Printf("[sandbox] tearing down dynamic container %s", containerName)
 		_ = exec.Command("docker", "rm", "-f", containerName).Run()
 		delete(m.containers, sessionID)
+	}
+}
+
+// seedWorkspace populates a candidate workspace with scenario files and verify.sh
+func seedWorkspace(dst string) {
+	_ = os.MkdirAll(dst, 0755)
+
+	// Source directories to check for scenario files
+	srcDirs := []string{
+		"./scenarios/payments-triage/workspace",
+		"./workspace",
+	}
+	for _, src := range srcDirs {
+		if entries, err := os.ReadDir(src); err == nil && len(entries) > 0 {
+			for _, entry := range entries {
+				srcFile := filepath.Join(src, entry.Name())
+				dstFile := filepath.Join(dst, entry.Name())
+				if !entry.IsDir() {
+					if data, err := os.ReadFile(srcFile); err == nil {
+						_ = os.WriteFile(dstFile, data, 0644)
+					}
+				}
+			}
+			break
+		}
+	}
+
+	// Always ensure verify.sh is present with executable permissions
+	verifySources := []string{
+		"./scenarios/payments-triage/evaluation/verify.sh",
+		"./workspace/verify.sh",
+	}
+	for _, vs := range verifySources {
+		if data, err := os.ReadFile(vs); err == nil {
+			_ = os.WriteFile(filepath.Join(dst, "verify.sh"), data, 0755)
+			break
+		}
 	}
 }

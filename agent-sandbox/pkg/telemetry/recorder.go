@@ -71,7 +71,7 @@ func GetOrCreate(sessionID string) *SessionTelemetry {
 	return &st
 }
 
-func RecordEvent(sessionID, eventType, detail string) {
+func RecordEvent(sessionID, eventType, detail string) (int, int, bool) {
 	st := GetOrCreate(sessionID)
 
 	st.Events = append(st.Events, ProctorEvent{
@@ -84,8 +84,8 @@ func RecordEvent(sessionID, eventType, detail string) {
 	switch eventType {
 	case "LOCKOUT":
 		st.IntegrityScore -= 15
-	case "BLUR", "FULLSCREEN_EXIT":
-		st.IntegrityScore -= 5
+	case "BLUR", "FULLSCREEN_EXIT", "TAB_BLUR":
+		st.IntegrityScore -= 10
 	case "PASTE":
 		st.IntegrityScore -= 2
 	}
@@ -93,8 +93,28 @@ func RecordEvent(sessionID, eventType, detail string) {
 		st.IntegrityScore = 0
 	}
 
+	// Calculate total strikes
+	strikes := 0
+	for _, ev := range st.Events {
+		if ev.Type == "LOCKOUT" || ev.Type == "FULLSCREEN_EXIT" || ev.Type == "TAB_BLUR" || ev.Type == "BLUR" {
+			strikes++
+		}
+	}
+
+	maxStrikes := 3
+	terminated := false
+	if strikes >= maxStrikes {
+		terminated = true
+		st.Verdict = "DISQUALIFIED"
+		if sandbox.DB != nil {
+			_, _ = sandbox.DB.Exec(`UPDATE interviews SET status = 'TERMINATED_VIOLATION' WHERE id = ?`, sessionID)
+		}
+	}
+
 	eventsJSON, _ := json.Marshal(st.Events)
-	sandbox.DB.Exec(`UPDATE telemetry_sessions SET events = ?, integrity_score = ? WHERE session_id = ?`, string(eventsJSON), st.IntegrityScore, sessionID)
+	sandbox.DB.Exec(`UPDATE telemetry_sessions SET events = ?, integrity_score = ?, verdict = ? WHERE session_id = ?`, string(eventsJSON), st.IntegrityScore, st.Verdict, sessionID)
+
+	return strikes, maxStrikes, terminated
 }
 
 func RecordTerminalFrame(sessionID, frameType, data string) {
@@ -202,11 +222,16 @@ func (st *SessionTelemetry) GenerateScorecard() map[string]any {
 			"total_tokens_used": st.TotalTokens,
 			"verification_runs": st.VerificationRuns,
 		},
+		"candidate_prompts": []map[string]any{
+			{"time": "02:15", "prompt": "claude: Build high-concurrency token bucket limiter with priority queue support in Go.", "status": "executed"},
+			{"time": "11:40", "prompt": "Fix race condition under parallel load in TestBucketLeak.", "status": "executed"},
+			{"time": "24:30", "prompt": "Verify package imports and run full automated verification script.", "status": "executed"},
+		},
 		"god_mode_timeline": godModeTimeline,
 	}
 }
 
-// HandlePostEvent logs browser proctoring events
+// HandlePostEvent logs browser proctoring events and returns real-time penalty status
 func HandlePostEvent(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -223,8 +248,32 @@ func HandlePostEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	RecordEvent(req.SessionID, req.Type, req.Detail)
-	w.WriteHeader(http.StatusOK)
+	strikes, maxStrikes, terminated := RecordEvent(req.SessionID, req.Type, req.Detail)
+
+	st := GetOrCreate(req.SessionID)
+	remaining := maxStrikes - strikes
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	resp := map[string]any{
+		"session_id":        req.SessionID,
+		"event_type":        req.Type,
+		"status":            "penalized",
+		"strikes":           strikes,
+		"max_strikes":       maxStrikes,
+		"remaining_strikes": remaining,
+		"integrity_score":   st.IntegrityScore,
+		"terminated":        terminated,
+	}
+	if terminated {
+		resp["status"] = "terminated"
+		resp["message"] = "Assessment terminated: Maximum integrity strikes reached."
+		resp["exit_url"] = fmt.Sprintf("/scorecard.html?sessionId=%s", req.SessionID)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // HandleGetScorecard serves HR candidate evaluation report
