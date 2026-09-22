@@ -1,0 +1,9 @@
+{
+  "badge": "Rules",
+  "badge_color": "#f59e0b",
+  "id": "card_3",
+  "stack_trace": "- Preserve all public method signatures\n- Zero external third-party dependencies\n- Zero race conditions under go test -race",
+  "summary": "- Preserve all public method signatures\n- Zero external third-party dependencies\n- Zero race conditions under go test -race",
+  "tab_title": "3. Constraints",
+  "title": "Engineering Rules"
+}

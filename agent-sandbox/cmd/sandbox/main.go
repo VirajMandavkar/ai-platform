@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
 	"agent-sandbox/pkg/sandbox"
+	"agent-sandbox/pkg/telemetry"
 
 	"github.com/gorilla/websocket"
 )
@@ -45,24 +47,78 @@ func handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Launch output pump concurrently (PTY -> WebSocket)
-	go sandbox.PumpFromPTYToWebsocket(session.PTY, ws)
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	go sandbox.PumpFromPTYToWebsocket(ctx, session.PTY, ws)
 
 	// 3. Block on input pump (WebSocket -> PTY) until the client disconnects
 	sandbox.PumpFromWebsocketToPTY(ws, session.PTY)
 
 	log.Printf("Client disconnected from session: %s", sessionID)
-	// Notice: We deliberately do NOT close session.PTY here so the container session survives drops!
 }
 
 func main() {
+	// Initialize SQLite Database
+	sandbox.InitDB("./vibescout.db")
+
 	http.HandleFunc("/ws", handleWS)
 
-	// Serve static files (we will put index.html here for xterm.js)
+	scenarioDir := "./scenarios/payments-triage"
+	workspaceDir := "./workspace"
+
+	http.HandleFunc("/api/scenario", sandbox.HandleGetScenario(scenarioDir))
+	http.HandleFunc("/api/workspace/tree", sandbox.HandleGetWorkspaceTree(workspaceDir))
+	http.HandleFunc("/api/workspace/file", sandbox.HandleGetWorkspaceFile(workspaceDir))
+	http.HandleFunc("/api/workspace/verify", sandbox.HandleRunVerification())
+	http.HandleFunc("/api/telemetry/event", telemetry.HandlePostEvent)
+	
+	// Open Telemetry endpoints (could be protected in prod, but keeping simple)
+	http.HandleFunc("/api/telemetry/report", telemetry.HandleGetScorecard)
+	http.HandleFunc("/api/telemetry/playback", telemetry.HandleGetPlayback)
+	http.HandleFunc("/api/cohort/auth", sandbox.HandleCohortAuth)
+
+	// Admin API - Auth
+	http.HandleFunc("/api/admin/login", sandbox.HandleAdminLogin)
+	http.HandleFunc("/api/admin/register", sandbox.HandleAdminRegister)
+	http.HandleFunc("/api/admin/me", sandbox.HandleAdminMe)
+	http.HandleFunc("/api/admin/logout", sandbox.HandleAdminLogout)
+
+	// Admin API - Protected
+	scenariosBaseDir := "./scenarios"
+	http.HandleFunc("/api/admin/scenarios", sandbox.AdminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			sandbox.HandleSaveScenario(scenariosBaseDir)(w, r)
+		} else {
+			sandbox.HandleListScenarios(scenariosBaseDir)(w, r)
+		}
+	}))
+	http.HandleFunc("/api/admin/interviews", sandbox.AdminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			sandbox.HandleCreateInterview("http://localhost:8081")(w, r)
+		} else {
+			sandbox.HandleListInterviews(w, r)
+		}
+	}))
+	http.HandleFunc("/api/admin/cohorts", sandbox.AdminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			sandbox.HandleCreateCohort("http://localhost:8081")(w, r)
+		} else {
+			sandbox.HandleListCohorts(w, r)
+		}
+	}))
+
+	http.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./web/admin.html")
+	})
+
+	// Serve static files
 	fs := http.FileServer(http.Dir("./web"))
 	http.Handle("/", fs)
 
-	log.Println("Sandbox daemon listening on :8081...")
-	if err := http.ListenAndServe(":8081", nil); err != nil {
-		log.Fatalf("Server crashed: %v", err)
-	}
+	log.Println("[sandbox] starting server on :8081")
+	logHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("[HTTP] %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+		http.DefaultServeMux.ServeHTTP(w, r)
+	})
+	log.Fatal(http.ListenAndServe(":8081", logHandler))
 }

@@ -6,11 +6,28 @@
 *.dylib
 bin/
 dist/
+main
+*-daemon
+sandbox-daemon
+agent-sandbox/main
+agent-sandbox/sandbox-daemon
+proxy-gateway/main
+
+# Logs & Database
+*.log
+*.db
+build.log
+test_rce.sh
+
+# Dynamic candidate workspaces
+workspaces/
+agent-sandbox/workspace/
+llama.cpp/
 
 # Test binaries
 *.test
 
-# Go workspace local state (commit go.work, ignore local overrides if any)
+# Go workspace local state
 # keeping go.work tracked for monorepos
 
 # Environment & secrets (CRITICAL: never commit LLM keys)
@@ -25,6 +42,6 @@ dist/
 *.swp
 *~
 
-# Node/Vite (future-proofing for phase 3)
+# Node/Vite
 node_modules/
 .npm

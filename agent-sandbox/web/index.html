@@ -3,300 +3,481 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI-Native Technical Screen</title>
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
-    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <title>VibeScout | AI-Native Technical Assessments</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        // Check if candidate arrived via a magic link at the root URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || urlParams.get('sessionId');
+        if (token) {
+            window.location.href = `/sandbox.html?token=${encodeURIComponent(token)}`;
+        }
 
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { 
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace']
+                    },
+                    colors: {
+                        brandBlue: '#2563eb',
+                        brandDark: '#0f172a',
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        body {
-            margin: 0;
-            display: flex;
-            height: 100vh;
-            background-color: #0d1117;
-            color: #c9d1d9;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            overflow: hidden;
-        }
-
-        #brief-container {
-            width: 35%;
-            padding: 30px;
-            box-sizing: border-box;
-            border-right: 1px solid #30363d;
-            background-color: #161b22;
-            overflow-y: auto;
-        }
-        #brief-container h2 { margin-top: 0; color: #58a6ff; }
-        #brief-container h3 { color: #8b949e; margin-top: 25px; border-bottom: 1px solid #30363d; padding-bottom: 5px; }
-        .tag { background: #238636; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; }
-        code { background: #21262d; padding: 2px 5px; border-radius: 4px; font-family: monospace; }
-
-        #terminal-wrapper {
-            width: 65%;
-            display: flex;
-            flex-direction: column;
-            background-color: #1e1e1e;
-        }
-        #terminal-container {
-            flex: 1;
-            padding: 10px;
-        }
-
-        /* Start Modal */
-        #start-modal {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #0d1117;
-            z-index: 10000;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-        }
-        #start-btn {
-            background-color: #238636;
-            color: white;
-            border: none;
-            padding: 14px 28px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            border-radius: 6px;
-            cursor: pointer;
-            margin-top: 20px;
-        }
-        #start-btn:hover { background-color: #2ea043; }
-
-        /* Lockout Overlay */
-        #penalty-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(185, 28, 28, 0.98);
-            z-index: 9999;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            text-align: center;
-        }
-        #penalty-overlay h1 { font-size: 3rem; margin-bottom: 10px; }
-        #countdown { font-size: 6rem; font-weight: bold; font-family: monospace; margin: 20px 0; }
-        .warning-text { font-size: 1.2rem; max-width: 600px; line-height: 1.5; }
-        #resume-btn {
-            display: none;
-            background-color: white;
-            color: #b91c1c;
-            border: none;
-            padding: 12px 24px;
-            font-size: 1rem;
-            font-weight: bold;
-            border-radius: 6px;
-            cursor: pointer;
-            margin-top: 20px;
-        }
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        .hero-floating-card { box-shadow: 0 20px 40px -15px rgba(0,0,0,0.12); }
     </style>
 </head>
-<body>
+<body class="bg-white text-slate-900 overflow-x-hidden selection:bg-blue-600 selection:text-white">
 
-    <!-- Start Modal (Browser requires user gesture to enter fullscreen) -->
-    <div id="start-modal">
-        <h1>Proctored Assessment Environment</h1>
-        <p style="max-width: 500px; color: #8b949e;">
-            This technical screen is proctored in strict full-screen mode. Exiting full-screen, switching windows, or opening external tools triggers an automatic lockout penalty.
-        </p>
-        <button id="start-btn">Enter Fullscreen & Begin Test</button>
+    <!-- Top Announcement Banner -->
+    <div class="bg-brandDark text-white text-[11px] font-bold tracking-wider text-center py-2 uppercase flex items-center justify-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        Featured on Y Combinator Top AI Startups 2026 • The Standard for AI-Native Hiring
     </div>
 
-    <!-- 10-Second Lockout Overlay -->
-    <div id="penalty-overlay">
-        <h1>[PROCTOR ALERT] Integrity Violation</h1>
-        <p class="warning-text">Window focus lost or full-screen exited. This incident has been logged.</p>
-        <div id="countdown">10</div>
-        <button id="resume-btn">Re-enter Fullscreen</button>
-    </div>
-
-    <!-- Left Panel: Problem Statement -->
-    <div id="brief-container">
-        <h2>Production Memory Leak <span class="tag">System Triage</span></h2>
+    <!-- Sticky Navbar -->
+    <nav class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between bg-white sticky top-0 z-50 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-brandDark flex items-center justify-center text-white">
+                <i data-lucide="terminal" class="w-5 h-5"></i>
+            </div>
+            <span class="text-2xl font-bold tracking-tight text-brandDark">VibeScout</span>
+        </div>
         
-        <h3>The Scenario</h3>
-        <p>The core payment microservice in <code>/home/sandboxuser/workspace</code> is crashing intermittently during peak load. Telemetry indicates a severe memory leak tied to the worker pool architecture.</p>
-        
-        <h3>Your Task</h3>
-        <ol>
-            <li>Investigate the running process and identify the bottleneck.</li>
-            <li>Use the <code>claude</code> CLI agent to draft a patch for the race condition in the concurrency model.</li>
-            <li>Verify the fix by running <code>go test ./...</code>.</li>
-        </ol>
+        <div class="hidden lg:flex items-center gap-8">
+            <a href="#methodology" class="text-sm font-medium text-slate-600 hover:text-brandBlue transition">Methodology</a>
+            <a href="#products" class="text-sm font-medium text-slate-600 hover:text-brandBlue transition">Products</a>
+            <a href="#telemetry" class="text-sm font-medium text-slate-600 hover:text-brandBlue transition">Telemetry</a>
+            <a href="#impact" class="text-sm font-medium text-slate-600 hover:text-brandBlue transition">Impact</a>
+            <a href="#pricing" class="text-sm font-medium text-slate-600 hover:text-brandBlue transition">Pricing</a>
+        </div>
 
-        <h3>Constraints</h3>
-        <p>You must remain in full-screen mode throughout the assessment. All terminal and agent interactions are recorded.</p>
-    </div>
+        <div class="flex items-center gap-3">
+            <a href="/login.html?mode=signin" class="px-4 py-2 text-sm font-semibold border border-slate-300 rounded-lg hover:bg-slate-50 transition text-slate-700">
+                Recruiter Login
+            </a>
+            <a href="/login.html?mode=signup" class="px-5 py-2 text-sm font-semibold bg-brandDark text-white rounded-lg hover:bg-slate-800 transition shadow-md shadow-slate-200">
+                Start Hiring
+            </a>
+        </div>
+    </nav>
 
-    <!-- Right Panel: Terminal -->
-    <div id="terminal-wrapper">
-        <div id="terminal-container"></div>
-    </div>
+    <!-- Hero Section -->
+    <section class="max-w-7xl mx-auto px-6 pt-12 pb-20 lg:pt-20 lg:pb-28 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div>
+            <!-- Tabs -->
+            <div class="flex items-center gap-6 mb-8 border-b border-slate-200 pb-2">
+                <div class="text-xs font-bold text-brandBlue border-b-2 border-brandBlue pb-2 -mb-[10px] tracking-wider uppercase">ORGANIZATIONS</div>
+                <a href="/sandbox.html?token=demo-session" class="text-xs font-medium text-slate-400 hover:text-slate-700 cursor-pointer flex items-center gap-1 tracking-wider uppercase transition">
+                    CANDIDATE DEMO <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+                </a>
+                <a href="#pricing" class="text-xs font-medium text-slate-400 hover:text-slate-700 cursor-pointer flex items-center gap-1 tracking-wider uppercase transition">
+                    ENTERPRISE BYOK <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+                </a>
+            </div>
+
+            <h1 class="text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 mb-6 leading-[1.1]">
+                Save your <span class="text-brandBlue">Engineering<br>Bandwidth</span>
+            </h1>
+            <p class="text-lg text-slate-600 mb-8 max-w-lg leading-relaxed">
+                Evaluating syntax is obsolete. VibeScout tests the engineers of tomorrow by dropping them into locked-down AI sandboxes to measure intuition, architectural steering, and prompt churn.
+            </p>
+            
+            <div class="flex flex-wrap items-center gap-4">
+                <a href="/login.html?mode=signup" class="inline-flex items-center gap-2 bg-brandDark text-white px-7 py-3.5 rounded-lg font-semibold hover:bg-slate-800 transition shadow-lg shadow-slate-300">
+                    Start Hiring Now <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+                <a href="/sandbox.html?token=demo-session" class="inline-flex items-center gap-2 bg-slate-100 text-slate-800 px-6 py-3.5 rounded-lg font-semibold hover:bg-slate-200 transition border border-slate-200">
+                    <i data-lucide="play" class="w-4 h-4 text-brandBlue"></i> Try Candidate Sandbox
+                </a>
+            </div>
+
+            <div class="mt-8 flex items-center gap-6 text-xs text-slate-500 font-medium">
+                <span class="flex items-center gap-1.5"><i data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i> No credit card required</span>
+                <span class="flex items-center gap-1.5"><i data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i> Instant magic link generation</span>
+                <span class="flex items-center gap-1.5"><i data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i> Isolated Docker workspaces</span>
+            </div>
+        </div>
+
+        <!-- Hero Visuals (Mockup windows) -->
+        <div class="relative h-[440px] w-full hidden lg:block">
+            <!-- Background Telemetry Card -->
+            <div class="absolute top-2 right-0 w-[85%] bg-slate-900 rounded-2xl border border-slate-800 hero-floating-card overflow-hidden z-10 p-5 text-slate-300 font-mono text-xs">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                        <span class="text-slate-400 font-sans font-medium text-xs ml-2">Realtime Candidate Telemetry</span>
+                    </div>
+                    <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 font-bold border border-emerald-800">RECORDING</span>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Prompt Churn Index:</span>
+                        <span class="text-emerald-400 font-bold">0.14 (Top 2% - Low Churn)</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">AI Reliance Factor:</span>
+                        <span class="text-blue-400 font-bold">Balanced Delegation</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Security Invariant:</span>
+                        <span class="text-emerald-400">0 vulnerabilities injected</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Token Efficiency:</span>
+                        <span class="text-indigo-300">1,240 / 5,000 quota</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Foreground Sandbox Terminal Card -->
+            <div class="absolute bottom-0 left-0 w-[88%] bg-black rounded-2xl border border-slate-700 hero-floating-card overflow-hidden z-20 shadow-2xl">
+                <div class="bg-slate-900 px-4 py-3 flex items-center justify-between border-b border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i>
+                        <span class="text-xs font-semibold text-slate-300">claude-sandbox ~ isolated-container</span>
+                    </div>
+                    <span class="text-[11px] font-mono text-slate-400">session: cand_41337</span>
+                </div>
+                <div class="p-6 font-mono text-xs leading-relaxed text-slate-300">
+                    <div class="text-slate-400">$ claude --dangerously-skip-permissions</div>
+                    <div class="text-blue-400 mt-2">> Analyzing repository: payment-gateway/bucket.go...</div>
+                    <div class="text-amber-300 mt-1">! Detected priority queue slot leak on context cancellation</div>
+                    <div class="text-emerald-400 font-bold mt-2">> Refactoring Acquire() with cancel cleanup channel...</div>
+                    <div class="text-slate-400 mt-2">$ go test -race ./internal/limiter</div>
+                    <div class="text-emerald-400 font-bold">PASS: TestBucketLeak (0.12s) - Verified 100%</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Products Section (The 3 Cards with Dashed Line) -->
+    <section id="products" class="bg-slate-50 py-24 relative overflow-hidden border-t border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-6 relative z-10">
+            <div class="mb-14">
+                <h3 class="text-brandBlue font-bold tracking-wide text-xs uppercase mb-2">Our products</h3>
+                <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+                    <h2 class="text-4xl font-bold text-slate-900 max-w-xl leading-tight">
+                        Comprehensive support for your entire hiring process
+                    </h2>
+                    <p class="text-slate-500 max-w-md text-sm leading-relaxed">
+                        VibeScout combines isolated container runtimes with AI telemetry to evaluate real engineering skill, saving dozens of interviewer hours.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Cards Grid with Dashed Line -->
+            <div class="relative mt-12">
+                <!-- Dashed line -->
+                <div class="hidden lg:block absolute top-1/2 left-0 right-0 h-0.5 border-t-2 border-dashed border-blue-200 -translate-y-1/2 z-0"></div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
+                    <!-- Card 1: AI Screen (Dark) -->
+                    <div class="bg-[#18181b] rounded-3xl p-8 text-white shadow-xl flex flex-col justify-between h-[460px] border border-slate-800">
+                        <div class="space-y-3">
+                            <div class="text-xs uppercase font-bold tracking-wider text-slate-400">Candidate Funnel</div>
+                            <div class="bg-white/10 rounded-xl p-3 flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center font-bold text-xs">AL</div>
+                                <div class="flex-grow">
+                                    <div class="font-semibold text-xs">Alenzo Miller</div>
+                                    <div class="text-[10px] text-slate-400">Senior Systems • Low Churn</div>
+                                </div>
+                                <span class="text-xs font-bold text-emerald-400">98%</span>
+                            </div>
+                            <div class="bg-white/10 rounded-xl p-3 flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center font-bold text-xs">XI</div>
+                                <div class="flex-grow">
+                                    <div class="font-semibold text-xs">Xian Zhang</div>
+                                    <div class="text-[10px] text-slate-400">Fullstack • High AI Synergy</div>
+                                </div>
+                                <span class="text-xs font-bold text-emerald-400">94%</span>
+                            </div>
+                            <div class="bg-white/5 rounded-xl p-3 flex items-center gap-3 opacity-60">
+                                <div class="w-9 h-9 rounded-full bg-slate-600 flex items-center justify-center font-bold text-xs">MI</div>
+                                <div class="flex-grow">
+                                    <div class="font-semibold text-xs">Mia Ramos</div>
+                                    <div class="text-[10px] text-slate-400">Backend • Prompt Loop Error</div>
+                                </div>
+                                <span class="text-xs font-bold text-amber-400">61%</span>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-bold mb-2">AI Screen</h3>
+                            <p class="text-slate-400 text-xs mb-6 leading-relaxed">Automated pre-screening verifying AI collaboration hygiene and prompt clarity.</p>
+                            <a href="/login.html?mode=signup" class="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center hover:bg-slate-200 transition">
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Interview as a Service (Light Blue) -->
+                    <div class="bg-[#e0f2fe] rounded-3xl p-8 text-slate-900 shadow-xl flex flex-col justify-between h-[460px] border border-blue-200">
+                        <div class="space-y-4">
+                            <div class="text-xs uppercase font-bold tracking-wider text-blue-700">Isolated Sandbox</div>
+                            <div class="bg-white rounded-xl shadow-md p-4 border border-blue-100">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></div>
+                                    <span class="text-xs font-bold text-slate-800">Docker Exec Sandbox Active</span>
+                                </div>
+                                <div class="text-[11px] text-slate-600 font-mono bg-slate-50 p-2.5 rounded">
+                                    > Dynamic workspace mounted<br>
+                                    > No raw terminal breakout<br>
+                                    > PTY WebSocket bidirectional
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-bold mb-2">Interview as a service</h3>
+                            <p class="text-slate-600 text-xs mb-6 leading-relaxed">Save 83% of engineering time on initial technical rounds with automated evaluation.</p>
+                            <a href="/login.html?mode=signup" class="w-9 h-9 rounded-full bg-brandBlue text-white flex items-center justify-center hover:bg-blue-700 transition shadow-md shadow-blue-400/30">
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Insights & Telemetry (White) -->
+                    <div class="bg-white rounded-3xl p-8 text-slate-900 shadow-xl flex flex-col justify-between h-[460px] border border-slate-200">
+                        <div class="space-y-4">
+                            <div class="text-xs uppercase font-bold tracking-wider text-slate-500">Live Telemetry</div>
+                            <div class="flex items-end gap-2 h-20 pb-2 border-b border-slate-100">
+                                <div class="w-full bg-blue-100 rounded-t h-[40%]"></div>
+                                <div class="w-full bg-blue-200 rounded-t h-[65%]"></div>
+                                <div class="w-full bg-brandBlue rounded-t h-[95%]"></div>
+                                <div class="w-full bg-blue-100 rounded-t h-[30%]"></div>
+                                <div class="w-full bg-blue-300 rounded-t h-[75%]"></div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-xs font-medium text-slate-600">
+                                    <span>AI Steering Accuracy</span>
+                                    <span class="font-bold text-brandBlue">92%</span>
+                                </div>
+                                <div class="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                    <div class="h-full bg-brandBlue rounded-full w-[92%]"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-bold mb-2">Insights & Replay</h3>
+                            <p class="text-slate-600 text-xs mb-6 leading-relaxed">Complete terminal session playback and breakdown of architectural decisions.</p>
+                            <a href="/login.html?mode=signup" class="w-9 h-9 rounded-full bg-brandDark text-white flex items-center justify-center hover:bg-slate-800 transition">
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Methodology Section -->
+    <section id="methodology" class="py-24 bg-white">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <h3 class="text-brandBlue font-bold tracking-wide text-xs uppercase mb-2">Methodology</h3>
+                <h2 class="text-4xl font-extrabold text-slate-900 tracking-tight">Why Traditional LeetCode Is Dead</h2>
+                <p class="text-slate-600 mt-4 text-base">In the age of Claude Code and Cursor, engineers don't type algorithms from memory. They architect, steer, and verify.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="p-8 rounded-2xl bg-slate-50 border border-slate-200">
+                    <div class="w-10 h-10 rounded-xl bg-blue-100 text-brandBlue flex items-center justify-center font-bold mb-5">
+                        <i data-lucide="cpu" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-2">Prompt Churn Scoring</h3>
+                    <p class="text-slate-600 text-sm leading-relaxed">Does the candidate give precise, high-leverage architectural prompts, or do they blindly paste errors in a churn loop?</p>
+                </div>
+
+                <div class="p-8 rounded-2xl bg-slate-50 border border-slate-200">
+                    <div class="w-10 h-10 rounded-xl bg-blue-100 text-brandBlue flex items-center justify-center font-bold mb-5">
+                        <i data-lucide="shield-check" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-2">Security Invariant Checks</h3>
+                    <p class="text-slate-600 text-sm leading-relaxed">AI frequently introduces SSRF, race conditions, or slot leaks. We measure if the candidate catches and fixes subtle AI traps.</p>
+                </div>
+
+                <div class="p-8 rounded-2xl bg-slate-50 border border-slate-200">
+                    <div class="w-10 h-10 rounded-xl bg-blue-100 text-brandBlue flex items-center justify-center font-bold mb-5">
+                        <i data-lucide="git-branch" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-900 mb-2">Architectural Drift Control</h3>
+                    <p class="text-slate-600 text-sm leading-relaxed">Evaluate whether the candidate maintains the integrity of existing codebase architecture or lets the AI rewrite half the repository.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Telemetry Showcase Section -->
+    <section id="telemetry" class="py-24 bg-slate-900 text-white">
+        <div class="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div>
+                <span class="text-xs uppercase font-bold tracking-widest text-emerald-400">Proprietary Telemetry Engine</span>
+                <h2 class="text-4xl font-extrabold tracking-tight mt-3 mb-6">
+                    Turn intuition into verifiable engineering signals.
+                </h2>
+                <p class="text-slate-400 text-base leading-relaxed mb-8">
+                    Every keystroke, terminal frame, and AI conversation prompt is tracked, token-metered, and scored into an actionable scorecard for your hiring committee.
+                </p>
+                <div class="space-y-4">
+                    <div class="flex items-start gap-4">
+                        <div class="p-2 rounded-lg bg-slate-800 text-brandBlue mt-1"><i data-lucide="video" class="w-5 h-5"></i></div>
+                        <div>
+                            <h4 class="font-bold text-white text-sm">Full Terminal Playback</h4>
+                            <p class="text-slate-400 text-xs mt-1">Review the candidate's exact workflow frame-by-frame with zero external recording software.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-4">
+                        <div class="p-2 rounded-lg bg-slate-800 text-emerald-400 mt-1"><i data-lucide="gauge" class="w-5 h-5"></i></div>
+                        <div>
+                            <h4 class="font-bold text-white text-sm">Token Efficiency Index</h4>
+                            <p class="text-slate-400 text-xs mt-1">Detect token wasters vs surgical prompt engineers who solve tasks in minimal roundtrips.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-black/80 rounded-2xl border border-slate-800 p-6 shadow-2xl font-mono text-xs">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4 text-slate-400">
+                    <span>EVALUATION SCORECARD</span>
+                    <span class="text-emerald-400 font-bold">VERDICT: STRONG HIRE</span>
+                </div>
+                <div class="space-y-3">
+                    <div class="bg-slate-900/80 p-3 rounded border border-slate-800 flex justify-between items-center">
+                        <span class="text-slate-300">Prompt Churn Metric</span>
+                        <span class="text-emerald-400 font-bold">0.12 (Optimal)</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-3 rounded border border-slate-800 flex justify-between items-center">
+                        <span class="text-slate-300">Architecture Integrity</span>
+                        <span class="text-emerald-400 font-bold">96 / 100</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-3 rounded border border-slate-800 flex justify-between items-center">
+                        <span class="text-slate-300">Test Verification</span>
+                        <span class="text-emerald-400 font-bold">Passed (3 attempts)</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-3 rounded border border-slate-800 flex justify-between items-center">
+                        <span class="text-slate-300">Total Duration</span>
+                        <span class="text-slate-200">18 mins / 45 mins</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Impact Section -->
+    <section id="impact" class="py-24 bg-white relative">
+        <div class="max-w-4xl mx-auto px-6 text-center relative z-10">
+            <h3 class="text-brandBlue font-bold tracking-wide text-xs uppercase mb-2">Impact</h3>
+            <h2 class="text-4xl font-extrabold text-slate-900 mb-16 tracking-tight">
+                Global leader in AI-native technical interviewing
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+                <div>
+                    <div class="text-[3.5rem] font-black text-brandBlue mb-2 leading-none">2.5x</div>
+                    <div class="text-slate-500 font-medium text-sm">faster hiring cycle</div>
+                </div>
+                <div>
+                    <div class="text-[3.5rem] font-black text-brandBlue mb-2 leading-none">83%</div>
+                    <div class="text-slate-500 font-medium text-sm">engineering bandwidth saved</div>
+                </div>
+                <div>
+                    <div class="text-[3.5rem] font-black text-brandBlue mb-2 leading-none">4.9/5</div>
+                    <div class="text-slate-500 font-medium text-sm">candidate approval rating</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-24 bg-slate-50 border-t border-slate-200">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16 max-w-2xl mx-auto">
+                <h3 class="text-brandBlue font-bold tracking-wide text-xs uppercase mb-2">Pricing</h3>
+                <h2 class="text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">Predictable, transparent pricing</h2>
+                <p class="text-slate-600 text-sm">Scale your candidate volume with enterprise rate limiting and zero surprise bills.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                <!-- Managed AI -->
+                <div class="bg-white rounded-2xl p-8 border border-slate-200 shadow-xl flex flex-col relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-1.5 bg-brandBlue"></div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-2xl font-bold text-slate-900">Managed AI</h3>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-brandBlue">POPULAR</span>
+                    </div>
+                    <p class="text-slate-500 text-xs mb-6 h-8">We provide the API keys, handle the rate limits, and run the isolated sandboxes.</p>
+                    <div class="mb-8">
+                        <span class="text-5xl font-black text-slate-900">$40</span>
+                        <span class="text-slate-500 text-sm font-medium">/ session</span>
+                    </div>
+                    <ul class="space-y-3.5 mb-8 flex-grow text-xs text-slate-700">
+                        <li class="flex items-center gap-2.5"><i data-lucide="check" class="w-4 h-4 text-brandBlue"></i> Zero API setup or account management</li>
+                        <li class="flex items-center gap-2.5"><i data-lucide="check" class="w-4 h-4 text-brandBlue"></i> Key pooling prevents 429 rate limit errors</li>
+                        <li class="flex items-center gap-2.5"><i data-lucide="check" class="w-4 h-4 text-brandBlue"></i> Auto-scaling Docker containers</li>
+                        <li class="flex items-center gap-2.5"><i data-lucide="check" class="w-4 h-4 text-brandBlue"></i> Full Prompt Churn Telemetry Scorecard</li>
+                    </ul>
+                    <a href="/login.html?mode=signup&tier=managed" class="w-full py-3.5 rounded-lg bg-brandDark text-white font-semibold text-center hover:bg-slate-800 transition shadow-md shadow-slate-200 block text-sm">
+                        Start with Managed AI
+                    </a>
+                </div>
+
+                <!-- BYOK -->
+                <div class="bg-brandDark rounded-2xl p-8 border border-slate-800 shadow-2xl flex flex-col relative overflow-hidden text-white">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-2xl font-bold text-white">Enterprise BYOK</h3>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">LOW COST</span>
+                    </div>
+                    <p class="text-slate-400 text-xs mb-6 h-8">Bring your own Anthropic API key. You pay wholesale for tokens, we provide the platform.</p>
+                    <div class="mb-8">
+                        <span class="text-5xl font-black text-white">$25</span>
+                        <span class="text-slate-400 text-sm font-medium">/ session</span>
+                    </div>
+                    <ul class="space-y-3.5 mb-8 flex-grow text-xs text-slate-300">
+                        <li class="flex items-center gap-2.5"><i data-lucide="check" class="w-4 h-4 text-emerald-400"></i> Bring your own Anthropic Tier 4/5 limits</li>
+                        <li class="flex items-center gap-2.5"><i data-lucide="check" class="w-4 h-4 text-emerald-400"></i> Pre-flight mathematical capacity checks</li>
+                        <li class="flex items-center gap-2.5"><i data-lucide="check" class="w-4 h-4 text-emerald-400"></i> Enterprise data isolation & zero retention</li>
+                        <li class="flex items-center gap-2.5"><i data-lucide="check" class="w-4 h-4 text-emerald-400"></i> Unlimited recruiter seats</li>
+                    </ul>
+                    <a href="/login.html?mode=signup&tier=byok" class="w-full py-3.5 rounded-lg bg-brandBlue text-white font-semibold text-center hover:bg-blue-600 transition shadow-lg shadow-blue-500/30 block text-sm">
+                        Start with BYOK ($25)
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-white py-12 border-t border-slate-200">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded bg-brandDark flex items-center justify-center text-white">
+                    <i data-lucide="terminal" class="w-4 h-4"></i>
+                </div>
+                <span class="text-lg font-bold tracking-tight text-brandDark">VibeScout</span>
+            </div>
+            <div class="flex items-center gap-6 text-xs text-slate-500">
+                <a href="#methodology" class="hover:text-slate-800">Methodology</a>
+                <a href="#products" class="hover:text-slate-800">Products</a>
+                <a href="#pricing" class="hover:text-slate-800">Pricing</a>
+                <a href="/login.html" class="hover:text-slate-800">Recruiter Portal</a>
+            </div>
+            <p class="text-slate-400 text-xs">© 2026 VibeScout Technologies Inc. All rights reserved.</p>
+        </div>
+    </footer>
 
     <script>
-        const term = new window.Terminal({
-            cursorBlink: true,
-            theme: { background: '#1e1e1e' },
-            fontFamily: 'Menlo, Monaco, "Courier New", monospace'
-        });
-        
-        const fitAddon = new window.FitAddon.FitAddon();
-        term.loadAddon(fitAddon);
-        term.open(document.getElementById('terminal-container'));
-        fitAddon.fit();
-
-        window.addEventListener('resize', () => { fitAddon.fit(); });
-
-        const mockSessionId = 'cand_' + Math.floor(Math.random() * 10000);
-        const ws = new WebSocket(`ws://${window.location.host}/ws?sessionId=${mockSessionId}`);
-
-        ws.onopen = () => {
-            term.writeln('\r\nConnection established. Dropping into Ubuntu container.\r\n');
-        };
-
-        ws.onmessage = async (event) => {
-            if (event.data instanceof Blob) {
-                const text = await event.data.text();
-                term.write(text);
-            } else {
-                term.write(event.data);
-            }
-        };
-
-        // ==========================================
-        // PROCTORING & FULLSCREEN ENGINE
-        // ==========================================
-        let testStarted = false;
-        let isLockedOut = false;
-        let focusStrikes = 0;
-
-        const startModal = document.getElementById('start-modal');
-        const startBtn = document.getElementById('start-btn');
-        const overlay = document.getElementById('penalty-overlay');
-        const countdownEl = document.getElementById('countdown');
-        const resumeBtn = document.getElementById('resume-btn');
-
-        // 1. Initial Fullscreen Activation
-        startBtn.addEventListener('click', () => {
-            document.documentElement.requestFullscreen().then(() => {
-                startModal.style.display = 'none';
-                testStarted = true;
-                fitAddon.fit();
-                term.focus();
-            }).catch(err => {
-                alert("Fullscreen authorization required to begin: " + err.message);
-            });
-        });
-
-        // 2. Penalty Trigger
-        function triggerLockout(reason) {
-            if (!testStarted || isLockedOut) return;
-
-            isLockedOut = true;
-            focusStrikes++;
-
-            overlay.style.display = 'flex';
-            resumeBtn.style.display = 'none';
-            countdownEl.style.display = 'block';
-
-            let timeLeft = 10;
-            countdownEl.innerText = timeLeft;
-
-            term.write(`\r\n\x1b[31;1m[PROCTOR ALERT] ${reason} (Strike ${focusStrikes}). 10s lockout applied.\x1b[0m\r\n`);
-
-            const timer = setInterval(() => {
-                timeLeft--;
-                countdownEl.innerText = timeLeft;
-
-                if (timeLeft <= 0) {
-                    clearInterval(timer);
-                    countdownEl.style.display = 'none';
-                    resumeBtn.style.display = 'block'; // Must click to re-engage fullscreen
-                }
-            }, 1000);
+        if (window.lucide && typeof lucide.createIcons === 'function') {
+            try { lucide.createIcons(); } catch(e) {}
         }
-
-        // 3. Resume Fullscreen
-        resumeBtn.addEventListener('click', () => {
-            document.documentElement.requestFullscreen().then(() => {
-                overlay.style.display = 'none';
-                isLockedOut = false;
-                fitAddon.fit();
-                term.focus();
-            }).catch(() => {
-                // If denied, keep overlay active
-            });
-        });
-
-        // 4. Listeners: Fullscreen Exit, Tab Switch, and Window Blur (Side-by-side click)
-        document.addEventListener('fullscreenchange', () => {
-            if (!document.fullscreenElement && testStarted) {
-                triggerLockout("Exited full-screen mode");
-            }
-        });
-
-        window.addEventListener('blur', () => {
-            if (testStarted) {
-                triggerLockout("Focus lost to external window");
-            }
-        });
-
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden' && testStarted) {
-                triggerLockout("Tab switched or minimized");
-            }
-        });
-
-        // 5. Block DevTools
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.code === 'KeyI' || e.code === 'KeyC'))) {
-                e.preventDefault();
-                term.write('\r\n\x1b[31;1m[PROCTOR ALERT] Developer Tools access blocked.\x1b[0m\r\n');
-            }
-        });
-
-        // 6. Terminal Key Handler
-        term.attachCustomKeyEventHandler((e) => {
-            if (isLockedOut) return false;
-
-            if (e.ctrlKey && (e.code === 'KeyC')) {
-                if (e.type === 'keydown' && term.hasSelection()) {
-                    navigator.clipboard.writeText(term.getSelection());
-                    term.write('\r\n\x1b[33m[Copied to clipboard]\x1b[0m\r\n');
-                }
-                return !term.hasSelection();
-            }
-
-            if (e.ctrlKey && (e.code === 'KeyV') && e.type === 'keydown') {
-                navigator.clipboard.readText().then(text => {
-                    if (text.length > 500) {
-                        term.write(`\r\n\x1b[31;1m[PROCTOR ALERT] Large paste detected (${text.length} chars).\x1b[0m\r\n`);
-                    }
-                    ws.send(text);
-                });
-                return false;
-            }
-            return true;
-        });
-
-        // Write pump: pure terminal I/O only (no JSON dumped into bash stdin)
-        term.onData((data) => {
-            if (!isLockedOut && ws.readyState === WebSocket.OPEN) {
-                ws.send(data);
-            }
-        });
-
-        ws.onclose = () => {
-            term.writeln('\r\n\r\nConnection lost. Attempting to reconnect...');
-        };
     </script>
 </body>
 </html>

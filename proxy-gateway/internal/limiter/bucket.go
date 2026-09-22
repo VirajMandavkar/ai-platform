@@ -101,8 +101,13 @@ func (b *Bucket) Acquire(ctx context.Context, p Priority) error {
 		default:
 			if waiter.Index >= 0 {
 				heap.Remove(&b.queue, waiter.Index)
+				b.mu.Unlock()
+			} else {
+				// It was just popped by Release() but hasn't received the channel message yet.
+				b.mu.Unlock()
+				<-waiter.Ready
+				b.Release()
 			}
-			b.mu.Unlock()
 		}
 
 		return ctx.Err()

@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"context"
 	"io"
 	"log"
 	"os"
@@ -9,22 +10,43 @@ import (
 )
 
 // PumpFromPTYToWebsocket continuously reads from the PTY and writes to the WebSocket.
-func PumpFromPTYToWebsocket(ptmx *os.File, ws *websocket.Conn) {
+func PumpFromPTYToWebsocket(ctx context.Context, ptmx *os.File, ws *websocket.Conn) {
 	buf := make([]byte, 4096)
+	
+	// Since os.File.Read is blocking and ignores context, we'll run it in a separate goroutine
+	// that communicates via a channel, so this function can exit when ctx is canceled.
+	type readResult struct {
+		n   int
+		err error
+	}
+	resultCh := make(chan readResult)
+	
+	go func() {
+		for {
+			n, err := ptmx.Read(buf)
+			resultCh <- readResult{n, err}
+			if err != nil {
+				break
+			}
+		}
+	}()
 
 	for {
-		n, err := ptmx.Read(buf)
-		if err != nil {
-			if err != io.EOF {
-				log.Printf("PTY read error, breaking loop: %v", err)
+		select {
+		case <-ctx.Done():
+			return
+		case res := <-resultCh:
+			if res.err != nil {
+				if res.err != io.EOF {
+					log.Printf("PTY read error, breaking loop: %v", res.err)
+				}
+				return
 			}
-			break
-		}
-
-		err = ws.WriteMessage(websocket.TextMessage, buf[:n])
-		if err != nil {
-			log.Printf("WebSocket write error, breaking loop: %v", err)
-			break
+			err := ws.WriteMessage(websocket.TextMessage, buf[:res.n])
+			if err != nil {
+				log.Printf("WebSocket write error, breaking loop: %v", err)
+				return
+			}
 		}
 	}
 }

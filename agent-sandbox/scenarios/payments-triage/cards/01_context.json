@@ -1,0 +1,9 @@
+{
+  "badge": "P0 Critical Incident",
+  "badge_color": "#f43f5e",
+  "id": "card_1",
+  "stack_trace": "fatal error: concurrent map writes\ngoroutine 4182 [running]:\nmain.(*PaymentQueue).Enqueue(0xc000124000, 0xc0000a2000)",
+  "summary": "fatal error: concurrent map writes\ngoroutine 4182 [running]:\nmain.(*PaymentQueue).Enqueue(0xc000124000, 0xc0000a2000)",
+  "tab_title": "1. Context",
+  "title": "Intermittent OOM Crashes \u0026 Race Condition"
+}

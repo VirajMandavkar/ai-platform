@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidate Workspace | VibeScout Sandbox</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: { 
+                extend: { 
+                    fontFamily: { 
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace']
+                    } 
+                } 
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-950 text-white h-screen flex flex-col overflow-hidden selection:bg-blue-600 selection:text-white">
+    <!-- Header -->
+    <header class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 shrink-0 z-10">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-white font-bold text-xs">
+                    <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+                </div>
+                <span class="font-bold text-sm text-slate-200">VibeScout Sandbox</span>
+            </div>
+            <div class="h-4 w-px bg-slate-700"></div>
+            <div id="session-badge" class="text-xs font-mono text-slate-400">
+                Session: <span id="session-token-display" class="text-blue-400">loading...</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4 text-xs">
+            <div id="connection-status" class="flex items-center gap-1.5 text-amber-400 font-medium">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                <span>Connecting...</span>
+            </div>
+            <div class="bg-slate-800 px-3 py-1.5 rounded-md font-mono text-slate-300 flex items-center gap-1.5 border border-slate-700">
+                <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
+                <span id="timer-display">44:59</span>
+            </div>
+            <button id="submit-solution-btn" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-md text-white font-bold transition flex items-center gap-1.5 shadow-sm shadow-blue-500/20">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i> Submit Solution
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Assessment Workspace -->
+    <div class="flex-grow flex overflow-hidden">
+        <!-- Left panel: Task Instructions & Acceptance Criteria -->
+        <div class="w-1/3 bg-slate-900 border-r border-slate-800 flex flex-col overflow-y-auto">
+            <div class="p-4 border-b border-slate-800 font-semibold text-xs uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                <span class="flex items-center gap-1.5"><i data-lucide="file-text" class="w-4 h-4 text-blue-400"></i> Assessment Briefing</span>
+                <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300 font-mono">GO BACKEND</span>
+            </div>
+
+            <div class="p-6 space-y-6 text-sm text-slate-300 leading-relaxed">
+                <div>
+                    <h2 class="text-lg font-bold text-white mb-2">Scenario: Fix Priority Queue Slot Leak</h2>
+                    <p class="text-xs text-slate-400 leading-normal">
+                        A recent architectural commit to <code class="text-blue-300 bg-slate-800 px-1 py-0.5 rounded font-mono">internal/limiter/bucket.go</code> introduced a race condition in the concurrency token bucket when processing 200+ parallel requests.
+                    </p>
+                </div>
+
+                <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700 text-xs space-y-2">
+                    <div class="font-bold text-white flex items-center gap-1.5">
+                        <i data-lucide="target" class="w-4 h-4 text-emerald-400"></i> Deliverables:
+                    </div>
+                    <ul class="list-disc list-inside space-y-1 text-slate-300 ml-1">
+                        <li>Guide Claude to inspect <code class="text-emerald-300 font-mono">bucket.go</code> and locate the context cancellation leak.</li>
+                        <li>Apply an architectural patch that frees the reserved slot if the context cancels while blocked.</li>
+                        <li>Verify that all tests pass without race conditions.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-blue-950/40 p-4 rounded-xl border border-blue-900/60 text-xs space-y-2">
+                    <div class="font-bold text-blue-400 flex items-center gap-1.5">
+                        <i data-lucide="info" class="w-4 h-4 text-blue-400"></i> AI Agent Commands:
+                    </div>
+                    <p class="text-slate-300 text-[11px]">
+                        You are locked into this terminal with Claude Code. Launch and direct the AI:
+                    </p>
+                    <code class="block bg-black/60 p-2.5 rounded font-mono text-emerald-400 text-[11px] select-all">
+                        claude --dangerously-skip-permissions
+                    </code>
+                </div>
+
+                <div class="text-xs text-slate-500 pt-4 border-t border-slate-800">
+                    <p>💡 <b>Tip:</b> Your Prompt Churn Score is measured by how clearly you guide the agent rather than repeatedly reprompting.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right panel: Terminal Workspace -->
+        <div class="w-2/3 bg-black flex flex-col relative overflow-hidden">
+            <!-- Window Tab Header -->
+            <div class="h-9 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                    <span class="text-[11px] font-mono text-slate-400 ml-2">claude-isolated-container</span>
+                </div>
+                <span class="text-[10px] text-slate-500 font-mono">pty: /dev/pts/1</span>
+            </div>
+
+            <!-- xterm.js Mount -->
+            <div id="terminal" class="flex-grow p-3 bg-black overflow-hidden"></div>
+        </div>
+    </div>
+
+    <!-- Verification Result Modal -->
+    <div id="verify-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-700">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                <div class="flex items-center gap-2">
+                    <div id="modal-icon-container" class="w-8 h-8 rounded-lg flex items-center justify-center"></div>
+                    <h3 id="modal-title" class="font-bold text-base text-white">Verification Results</h3>
+                </div>
+                <button onclick="document.getElementById('verify-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <div class="space-y-3">
+                <p id="modal-summary" class="text-xs text-slate-300 leading-relaxed"></p>
+                
+                <div>
+                    <span class="text-[11px] uppercase font-bold text-slate-500 tracking-wider">Output Log</span>
+                    <pre id="modal-output" class="mt-1 p-3 rounded-lg bg-black border border-slate-800 font-mono text-xs text-slate-300 max-h-48 overflow-y-auto whitespace-pre-wrap"></pre>
+                </div>
+            </div>
+
+            <div class="mt-5 flex justify-end gap-2">
+                <button onclick="document.getElementById('verify-modal').classList.add('hidden')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold transition">
+                    Back to Terminal
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // Extract session token from URL or default to demo
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || urlParams.get('sessionId') || ('cand_demo_' + Math.random().toString(16).substring(2, 8));
+        document.getElementById('session-token-display').textContent = token;
+
+        // Initialize xterm.js
+        const term = new Terminal({
+            cursorBlink: true,
+            theme: {
+                background: '#000000',
+                foreground: '#f8f8f2',
+                cursor: '#f8f8f0',
+                black: '#272822',
+                red: '#f92672',
+                green: '#a6e22e',
+                yellow: '#f4bf75',
+                blue: '#66d9ef',
+                magenta: '#ae81ff',
+                cyan: '#a1efe4',
+                white: '#f8f8f2'
+            },
+            fontFamily: '"JetBrains Mono", monospace',
+            fontSize: 13,
+            lineHeight: 1.2
+        });
+
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(document.getElementById('terminal'));
+        fitAddon.fit();
+
+        window.addEventListener('resize', () => { fitAddon.fit(); });
+
+        term.writeln('\x1b[1;36m[VibeScout Sandbox Engine v2.0]\x1b[0m');
+        term.writeln('\x1b[90mSession ID: ' + token + '\x1b[0m');
+        term.writeln('Connecting to isolated workspace environment...\r\n');
+
+        // WebSocket Connection
+        const host = window.location.host || 'localhost:8081';
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${host}/ws?sessionId=${encodeURIComponent(token)}`;
+        
+        let socket;
+        try {
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = () => {
+                document.getElementById('connection-status').className = "flex items-center gap-1.5 text-emerald-400 font-medium";
+                document.getElementById('connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Connected</span>';
+                term.writeln('\x1b[1;32m[Connected]\x1b[0m You are now inside your isolated container.');
+                term.writeln('Type \x1b[1;33mclaude --dangerously-skip-permissions\x1b[0m to initiate Claude Code.\r\n');
+            };
+
+            socket.onmessage = (event) => {
+                term.write(event.data);
+            };
+
+            term.onData((data) => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(data);
+                }
+            });
+
+            socket.onclose = () => {
+                document.getElementById('connection-status').className = "flex items-center gap-1.5 text-red-400 font-medium";
+                document.getElementById('connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span>Disconnected</span>';
+                term.writeln('\r\n\x1b[1;31m[Disconnected]\x1b[0m Connection to container dropped.');
+            };
+
+            socket.onerror = (err) => {
+                document.getElementById('connection-status').className = "flex items-center gap-1.5 text-red-400 font-medium";
+                document.getElementById('connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span>Error</span>';
+                term.writeln('\r\n\x1b[1;31m[Error]\x1b[0m WebSocket error: ' + err.message);
+            };
+        } catch (e) {
+            term.writeln('\r\n\x1b[1;31mConnection initialization failed: ' + e.message + '\x1b[0m');
+        }
+
+        // Telemetry tracking: tab switch (blur event)
+        window.addEventListener('blur', () => {
+            fetch('/api/telemetry/event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: token,
+                    event_type: 'TAB_BLUR',
+                    detail: 'Candidate switched tabs or window lost focus'
+                })
+            }).catch(() => {});
+        });
+
+        // Verification / Solution Submission
+        const submitBtn = document.getElementById('submit-solution-btn');
+        submitBtn.addEventListener('click', async () => {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Verifying...';
+            lucide.createIcons();
+
+            try {
+                const res = await fetch(`/api/workspace/verify?sessionId=${encodeURIComponent(token)}`, {
+                    method: 'POST'
+                });
+                const data = await res.json();
+
+                const modal = document.getElementById('verify-modal');
+                const modalIcon = document.getElementById('modal-icon-container');
+                const modalTitle = document.getElementById('modal-title');
+                const modalSummary = document.getElementById('modal-summary');
+                const modalOutput = document.getElementById('modal-output');
+
+                if (data.passed) {
+                    modalIcon.className = "w-8 h-8 rounded-lg bg-emerald-950 border border-emerald-800 text-emerald-400 flex items-center justify-center font-bold";
+                    modalIcon.innerHTML = '<i data-lucide="check-circle" class="w-5 h-5"></i>';
+                    modalTitle.textContent = "Solution Passed 100%!";
+                    modalSummary.textContent = "All unit tests and security invariants executed without race conditions or memory leaks. Your recruiter scorecard has been updated to COMPLETED!";
+                } else {
+                    modalIcon.className = "w-8 h-8 rounded-lg bg-amber-950 border border-amber-800 text-amber-400 flex items-center justify-center font-bold";
+                    modalIcon.innerHTML = '<i data-lucide="alert-triangle" class="w-5 h-5"></i>';
+                    modalTitle.textContent = "Tests Incomplete or Failed";
+                    modalSummary.textContent = "The automated verification script detected failing tests or unhandled error cases. Review the output below and instruct Claude to patch the error.";
+                }
+
+                modalOutput.textContent = data.output || "No output returned.";
+                modal.classList.remove('hidden');
+                lucide.createIcons();
+            } catch (err) {
+                alert("Error running verification: " + err.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Submit Solution';
+                lucide.createIcons();
+            }
+        });
+
+        // 45-minute countdown timer
+        let timeLeft = 45 * 60;
+        setInterval(() => {
+            if (timeLeft > 0) {
+                timeLeft--;
+                const mins = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+                const secs = (timeLeft % 60).toString().padStart(2, '0');
+                document.getElementById('timer-display').textContent = `${mins}:${secs}`;
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

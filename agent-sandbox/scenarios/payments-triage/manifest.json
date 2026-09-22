@@ -1,0 +1,10 @@
+{
+  "duration_minutes": 45,
+  "id": "payments-triage",
+  "language": "go",
+  "title": "Payment Processor Concurrency Triage asssddas",
+  "track": "Senior Backend Systems Engineer (Go)",
+  "verification": {
+    "command": "go test -v -race ./..."
+  }
+}

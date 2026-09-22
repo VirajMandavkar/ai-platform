@@ -1,0 +1,9 @@
+{
+  "badge": "System Flow",
+  "badge_color": "#6366f1",
+  "id": "card_2",
+  "stack_trace": "Payment ingestion handles incoming charges and dispatches jobs to concurrent workers. Unsynchronized map writes occur during high volume.",
+  "summary": "Payment ingestion handles incoming charges and dispatches jobs to concurrent workers. Unsynchronized map writes occur during high volume.",
+  "tab_title": "2. Architecture",
+  "title": "Pipeline \u0026 Worker Pool Topology"
+}
