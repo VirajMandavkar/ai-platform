@@ -26,11 +26,10 @@
         }
     </script>
     <style>
-        .no-select {
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
+        /* Enable text selection everywhere in workspace */
+        ::selection {
+            background-color: #2563eb;
+            color: #ffffff;
         }
     </style>
 </head>
@@ -39,11 +38,17 @@
     <!-- Anti-Cheat Notification Toast -->
     <div id="anticheat-toast" class="hidden fixed top-5 left-1/2 -translate-x-1/2 z-[10000] bg-amber-500 text-slate-950 px-5 py-2.5 rounded-xl font-bold text-xs shadow-2xl flex items-center gap-2 backdrop-blur-md transition-all duration-300">
         <i data-lucide="alert-octagon" class="w-4 h-4 shrink-0"></i>
-        <span id="anticheat-toast-text">Developer tools and inspection shortcuts are disabled.</span>
+        <span id="anticheat-toast-text">Developer tools are disabled in proctored mode.</span>
+    </div>
+
+    <!-- Quick Action Floating Toast (e.g. Copied, Saved) -->
+    <div id="action-toast" class="hidden fixed bottom-6 right-6 z-[10000] bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold text-xs shadow-2xl flex items-center gap-2 transition-all duration-200">
+        <i data-lucide="check" class="w-4 h-4"></i>
+        <span id="action-toast-text">Copied to clipboard</span>
     </div>
 
     <!-- Red Screen Lockout Penalty Overlay -->
-    <div id="lockout-overlay" class="hidden fixed inset-0 z-[9999] bg-red-950/95 border-[10px] border-red-600 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center no-select">
+    <div id="lockout-overlay" class="hidden fixed inset-0 z-[9999] bg-red-950/95 border-[10px] border-red-600 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center select-none">
         <div class="w-24 h-24 rounded-full bg-red-600/20 border-2 border-red-500 text-red-500 flex items-center justify-center mb-6 animate-pulse-fast shadow-[0_0_50px_rgba(239,68,68,0.4)]">
             <i data-lucide="shield-alert" class="w-14 h-14"></i>
         </div>
@@ -142,8 +147,8 @@
                             <span><b>Lockout Penalty:</b> Exiting fullscreen or navigating to other tabs/windows triggers an immediate 10-second penalty lockout.</span>
                         </li>
                         <li class="flex items-start gap-2">
-                            <span class="text-red-400 font-bold">✕</span>
-                            <span><b>DevTools Blocked:</b> Right-click context menus and developer shortcut keys are disabled.</span>
+                            <span class="text-blue-400 font-bold">⌨</span>
+                            <span><b>Full Terminal & Editor Access:</b> Copy/paste (`Ctrl+C` / `Ctrl+V`) and manual code edits are fully enabled.</span>
                         </li>
                     </ul>
                 </div>
@@ -157,7 +162,7 @@
     </div>
 
     <!-- Header -->
-    <header class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 shrink-0 z-10 no-select">
+    <header class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 shrink-0 z-10">
         <div class="flex items-center gap-4">
             <div class="flex items-center gap-2">
                 <div class="w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-white font-bold text-xs">
@@ -194,7 +199,7 @@
     <!-- Main Assessment Workspace -->
     <div class="flex-grow flex overflow-hidden">
         <!-- Left panel: Task Instructions & Acceptance Criteria -->
-        <div class="w-1/3 bg-slate-900 border-r border-slate-800 flex flex-col overflow-y-auto no-select">
+        <div class="w-1/3 bg-slate-900 border-r border-slate-800 flex flex-col overflow-y-auto select-text">
             <div class="p-4 border-b border-slate-800 font-semibold text-xs uppercase tracking-wider text-slate-400 flex items-center justify-between">
                 <span class="flex items-center gap-1.5"><i data-lucide="file-text" class="w-4 h-4 text-blue-400"></i> Assessment Briefing</span>
                 <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300 font-mono">GO BACKEND</span>
@@ -212,46 +217,112 @@
                     <div class="font-bold text-white flex items-center gap-1.5">
                         <i data-lucide="target" class="w-4 h-4 text-emerald-400"></i> Deliverables:
                     </div>
-                    <ul class="list-disc list-inside space-y-1 text-slate-300 ml-1">
+                    <ul class="list-disc list-inside space-y-1.5 text-slate-300 ml-1">
                         <li>Guide Claude to inspect <code class="text-emerald-300 font-mono">bucket.go</code> and locate the context cancellation leak.</li>
                         <li>Apply an architectural patch that frees the reserved slot if the context cancels while blocked.</li>
-                        <li>Verify that all tests pass without race conditions.</li>
+                        <li>Verify that all tests pass without race conditions: <code class="text-emerald-300 font-mono">go test -v -race ./...</code></li>
                     </ul>
                 </div>
 
-                <div class="bg-blue-950/40 p-4 rounded-xl border border-blue-900/60 text-xs space-y-2">
-                    <div class="font-bold text-blue-400 flex items-center gap-1.5">
-                        <i data-lucide="info" class="w-4 h-4 text-blue-400"></i> AI Agent Commands:
+                <div class="bg-blue-950/40 p-4 rounded-xl border border-blue-900/60 text-xs space-y-2 relative">
+                    <div class="font-bold text-blue-400 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5"><i data-lucide="terminal" class="w-4 h-4 text-blue-400"></i> AI Agent Launch Command:</span>
+                        <button onclick="copySnippet('claude --dangerously-skip-permissions')" class="text-[10px] bg-blue-900/60 hover:bg-blue-800 px-2 py-0.5 rounded text-blue-200 transition flex items-center gap-1">
+                            <i data-lucide="copy" class="w-3 h-3"></i> Copy
+                        </button>
                     </div>
                     <p class="text-slate-300 text-[11px]">
-                        You are locked into this terminal with Claude Code. Launch and direct the AI:
+                        Launch and direct Claude Code in the terminal:
                     </p>
-                    <code class="block bg-black/60 p-2.5 rounded font-mono text-emerald-400 text-[11px]">
+                    <code class="block bg-black/60 p-2.5 rounded font-mono text-emerald-400 text-[11px] select-all cursor-pointer" onclick="copySnippet('claude --dangerously-skip-permissions')">
                         claude --dangerously-skip-permissions
                     </code>
                 </div>
 
+                <div class="bg-amber-950/30 p-4 rounded-xl border border-amber-800/50 text-xs space-y-2">
+                    <div class="font-bold text-amber-400 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5"><i data-lucide="code" class="w-4 h-4 text-amber-400"></i> Phase 2: Taking The Wheel</span>
+                    </div>
+                    <p class="text-slate-300 text-[11px] leading-relaxed">
+                        If Claude hits a brick wall looping on subtle race conditions, switch to the <b>Code Editor</b> tab above to view and surgically fix files directly.
+                    </p>
+                </div>
+
                 <div class="text-xs text-slate-500 pt-4 border-t border-slate-800">
-                    <p>💡 <b>Tip:</b> Your Prompt Churn Score is measured by how clearly you guide the agent rather than repeatedly reprompting.</p>
+                    <p>💡 <b>Tip:</b> High Prompt Churn (blindly reprompting errors) is penalized. Know when to guide the AI with architectural context or edit files manually.</p>
                 </div>
             </div>
         </div>
 
-        <!-- Right panel: Terminal Workspace -->
+        <!-- Right panel: Dual Workspace (Terminal + Code Editor) -->
         <div class="w-2/3 bg-black flex flex-col relative overflow-hidden">
-            <!-- Window Tab Header -->
-            <div class="h-9 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 no-select">
-                <div class="flex items-center gap-2">
-                    <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-                    <div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
-                    <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
-                    <span class="text-[11px] font-mono text-slate-400 ml-2">claude-isolated-container</span>
+            <!-- Window Tab Header with View Switchers -->
+            <div class="h-10 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4">
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                    </div>
+                    
+                    <!-- View Tabs: Terminal vs Code Editor -->
+                    <div class="flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-xs">
+                        <button id="tab-terminal-btn" onclick="switchView('terminal')" class="px-3 py-1 rounded-md bg-blue-600 text-white font-medium flex items-center gap-1.5 transition">
+                            <i data-lucide="terminal" class="w-3.5 h-3.5"></i> Terminal & Claude
+                        </button>
+                        <button id="tab-editor-btn" onclick="switchView('editor')" class="px-3 py-1 rounded-md text-slate-400 hover:text-white font-medium flex items-center gap-1.5 transition">
+                            <i data-lucide="file-code" class="w-3.5 h-3.5"></i> Code Editor & Files
+                        </button>
+                    </div>
                 </div>
-                <span class="text-[10px] text-slate-500 font-mono">pty: /dev/pts/1</span>
+
+                <!-- Right Header Actions -->
+                <div class="flex items-center gap-2">
+                    <button onclick="copyTerminalSelection()" title="Copy Selection (Ctrl+C)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-mono flex items-center gap-1 transition">
+                        <i data-lucide="copy" class="w-3 h-3"></i> Copy
+                    </button>
+                    <button onclick="pasteToTerminal()" title="Paste to Terminal (Ctrl+V)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-mono flex items-center gap-1 transition">
+                        <i data-lucide="clipboard" class="w-3 h-3"></i> Paste
+                    </button>
+                    <span class="text-[10px] text-slate-500 font-mono ml-2">pty: /dev/pts/1</span>
+                </div>
             </div>
 
-            <!-- xterm.js Mount -->
-            <div id="terminal" class="flex-grow p-3 bg-black overflow-hidden"></div>
+            <!-- View 1: xterm.js Mount -->
+            <div id="view-terminal" class="flex-grow p-2 bg-black overflow-hidden flex flex-col">
+                <div id="terminal" class="flex-grow overflow-hidden"></div>
+            </div>
+
+            <!-- View 2: Code Editor & Workspace Tree -->
+            <div id="view-editor" class="hidden flex-grow flex overflow-hidden bg-slate-950">
+                <!-- File Tree Column -->
+                <div class="w-64 bg-slate-900/90 border-r border-slate-800 flex flex-col shrink-0">
+                    <div class="p-3 border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5"><i data-lucide="folder-tree" class="w-3.5 h-3.5 text-blue-400"></i> Workspace Files</span>
+                        <button onclick="loadWorkspaceTree()" title="Refresh files" class="hover:text-white"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
+                    </div>
+                    <div id="file-tree-container" class="p-2 space-y-0.5 overflow-y-auto text-xs font-mono text-slate-300">
+                        <!-- Loaded dynamically -->
+                        <div class="text-slate-500 p-2">Loading workspace files...</div>
+                    </div>
+                </div>
+
+                <!-- File Editor Column -->
+                <div class="flex-grow flex flex-col overflow-hidden bg-slate-950">
+                    <div class="h-9 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 shrink-0">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="file" class="w-3.5 h-3.5 text-emerald-400"></i>
+                            <span id="active-file-label" class="text-xs font-mono text-slate-300">internal/limiter/bucket.go</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="save-file-btn" onclick="saveActiveFile()" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition shadow-sm">
+                                <i data-lucide="save" class="w-3.5 h-3.5"></i> Save File (Ctrl+S)
+                            </button>
+                        </div>
+                    </div>
+                    <textarea id="code-editor-textarea" spellcheck="false" class="flex-grow bg-slate-950 text-slate-100 font-mono text-xs p-4 resize-none focus:outline-none leading-relaxed border-none selection:bg-blue-600"></textarea>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -271,7 +342,7 @@
                 
                 <div>
                     <span class="text-[11px] uppercase font-bold text-slate-500 tracking-wider">Output Log</span>
-                    <pre id="modal-output" class="mt-1 p-3 rounded-lg bg-black border border-slate-800 font-mono text-xs text-slate-300 max-h-48 overflow-y-auto whitespace-pre-wrap"></pre>
+                    <pre id="modal-output" class="mt-1 p-3 rounded-lg bg-black border border-slate-800 font-mono text-xs text-slate-300 max-h-48 overflow-y-auto whitespace-pre-wrap select-text"></pre>
                 </div>
             </div>
 
@@ -294,25 +365,25 @@
         }
         document.getElementById('input-token').value = activeToken;
 
-        // Anti-Cheat: Disable Right Click Context Menu
-        document.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            showAntiCheatToast('Right-click context menu is disabled in proctored session.');
-            return false;
-        });
-
-        // Anti-Cheat: Block Developer Shortcuts (F12, F11, Ctrl+Shift+I/C/J, Ctrl+U)
+        // Anti-Cheat: Block Developer Inspection Tools ONLY (F12, F11, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U)
+        // ALLOW Ctrl+C, Ctrl+V, Ctrl+Shift+C, Ctrl+Shift+V for copy-paste!
         window.addEventListener('keydown', (e) => {
             const isF12 = e.key === 'F12' || e.keyCode === 123;
             const isF11 = e.key === 'F11' || e.keyCode === 122;
-            const isDevInspect = (e.ctrlKey || e.metaKey) && e.shiftKey && ['I', 'i', 'C', 'c', 'J', 'j'].includes(e.key);
+            const isDevInspect = (e.ctrlKey || e.metaKey) && e.shiftKey && ['I', 'i', 'J', 'j'].includes(e.key);
             const isViewSource = (e.ctrlKey || e.metaKey) && ['U', 'u'].includes(e.key);
 
             if (isF12 || isF11 || isDevInspect || isViewSource) {
                 e.preventDefault();
                 e.stopPropagation();
                 showAntiCheatToast('Developer tools and inspection shortcuts are disabled during proctoring.');
+                return false;
+            }
+
+            // Support Ctrl+S inside code editor
+            if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                e.preventDefault();
+                saveActiveFile();
                 return false;
             }
         }, true);
@@ -327,6 +398,21 @@
             }, 3000);
         }
 
+        function showActionToast(msg) {
+            const toast = document.getElementById('action-toast');
+            document.getElementById('action-toast-text').textContent = msg;
+            toast.classList.remove('hidden');
+            clearTimeout(window._actionToastTimeout);
+            window._actionToastTimeout = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 2500);
+        }
+
+        function copySnippet(text) {
+            navigator.clipboard.writeText(text);
+            showActionToast('Command copied: ' + text);
+        }
+
         // Proctoring State
         let isProctoredSessionActive = false;
         let isLockedOut = false;
@@ -334,6 +420,54 @@
         let terminal = null;
         let fitAddon = null;
         let socket = null;
+        let activeFilePath = "internal/limiter/bucket.go";
+
+        // View Switcher (Terminal vs Code Editor)
+        function switchView(view) {
+            const terminalView = document.getElementById('view-terminal');
+            const editorView = document.getElementById('view-editor');
+            const tabTerminalBtn = document.getElementById('tab-terminal-btn');
+            const tabEditorBtn = document.getElementById('tab-editor-btn');
+
+            if (view === 'terminal') {
+                terminalView.classList.remove('hidden');
+                editorView.classList.add('hidden');
+                tabTerminalBtn.className = "px-3 py-1 rounded-md bg-blue-600 text-white font-medium flex items-center gap-1.5 transition";
+                tabEditorBtn.className = "px-3 py-1 rounded-md text-slate-400 hover:text-white font-medium flex items-center gap-1.5 transition";
+                if (fitAddon) fitAddon.fit();
+                if (terminal) terminal.focus();
+            } else {
+                terminalView.classList.add('hidden');
+                editorView.classList.remove('hidden');
+                tabEditorBtn.className = "px-3 py-1 rounded-md bg-blue-600 text-white font-medium flex items-center gap-1.5 transition";
+                tabTerminalBtn.className = "px-3 py-1 rounded-md text-slate-400 hover:text-white font-medium flex items-center gap-1.5 transition";
+                loadWorkspaceTree();
+                loadFileContent(activeFilePath);
+            }
+            lucide.createIcons();
+        }
+
+        // Copy/Paste Terminal Helpers
+        function copyTerminalSelection() {
+            if (terminal && terminal.hasSelection()) {
+                navigator.clipboard.writeText(terminal.getSelection());
+                showActionToast('Copied terminal selection');
+            } else {
+                showActionToast('Highlight text in terminal to copy');
+            }
+        }
+
+        async function pasteToTerminal() {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text && socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(text);
+                    showActionToast('Pasted to terminal');
+                }
+            } catch (err) {
+                showActionToast('Press Ctrl+V to paste');
+            }
+        }
 
         // Handle Identity Verification Submission
         const verifyForm = document.getElementById('verify-form');
@@ -442,6 +576,36 @@
                 if (fitAddon) fitAddon.fit(); 
             });
 
+            // Native Copy/Paste handler inside xterm.js
+            terminal.attachCustomKeyEventHandler((event) => {
+                // Copy (Ctrl+C / Cmd+C / Ctrl+Shift+C): If text is selected in xterm, copy it!
+                if ((event.ctrlKey || event.metaKey) && (event.key === 'c' || event.key === 'C')) {
+                    if (terminal.hasSelection()) {
+                        navigator.clipboard.writeText(terminal.getSelection());
+                        showActionToast('Copied to clipboard');
+                        return false; // don't send SIGINT when user intended to copy
+                    }
+                    // No text selected -> allow Ctrl+C to send SIGINT (\x03) to cancel terminal process
+                    return true;
+                }
+                // Paste (Ctrl+V / Cmd+V / Ctrl+Shift+V)
+                if ((event.ctrlKey || event.metaKey) && (event.key === 'v' || event.key === 'V')) {
+                    return true;
+                }
+                return true;
+            });
+
+            // Global paste listener for terminal
+            window.addEventListener('paste', (e) => {
+                if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+                    return; // native inputs handle paste normally
+                }
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                if (text && socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(text);
+                }
+            });
+
             terminal.writeln('\x1b[1;36m[VibeScout Sandbox Engine v2.0 - Proctored Session]\x1b[0m');
             terminal.writeln('\x1b[90mSession ID: ' + activeToken + '\x1b[0m');
             terminal.writeln('Connecting to isolated workspace environment...\r\n');
@@ -495,21 +659,18 @@
 
         // Anti-Cheat Proctoring Monitor
         function setupProctoringListeners() {
-            // Monitor window blur (tab switch or clicking off window)
             window.addEventListener('blur', () => {
                 if (isProctoredSessionActive && !isLockedOut) {
                     triggerLockout('Tab switch or window blur detected');
                 }
             });
 
-            // Monitor visibility change (tab hiding)
             document.addEventListener('visibilitychange', () => {
                 if (document.hidden && isProctoredSessionActive && !isLockedOut) {
                     triggerLockout('Assessment tab was hidden or minimized');
                 }
             });
 
-            // Monitor Fullscreen Exit
             document.addEventListener('fullscreenchange', () => {
                 const isFullscreen = !!document.fullscreenElement;
                 if (!isFullscreen && isProctoredSessionActive && !isLockedOut) {
@@ -528,7 +689,6 @@
             overlay.classList.remove('hidden');
             resumeBtn.disabled = true;
 
-            // Notify backend telemetry system
             fetch('/api/telemetry/event', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -539,7 +699,6 @@
                 })
             }).catch(() => {});
 
-            // 10-Second Penalty Countdown
             let remaining = 10;
             countdownEl.textContent = `${remaining}s`;
 
@@ -584,6 +743,95 @@
                     document.getElementById('timer-display').textContent = `${mins}:${secs}`;
                 }
             }, 1000);
+        }
+
+        // ==========================================
+        // WORKSPACE CODE EDITOR & FILE TREE
+        // ==========================================
+        async function loadWorkspaceTree() {
+            const container = document.getElementById('file-tree-container');
+            try {
+                const res = await fetch('/api/workspace/tree');
+                const nodes = await res.json();
+                container.innerHTML = '';
+                renderTreeNodes(nodes, container);
+            } catch (err) {
+                container.innerHTML = `<div class="text-amber-400 p-2 text-xs">Failed to load files: ${err.message}</div>`;
+            }
+        }
+
+        function renderTreeNodes(nodes, parentEl, depth = 0) {
+            nodes.forEach(node => {
+                const el = document.createElement('div');
+                el.className = "flex items-center gap-1.5 py-1 px-2 rounded hover:bg-slate-800 cursor-pointer text-slate-300 transition";
+                el.style.paddingLeft = `${depth * 12 + 8}px`;
+
+                if (node.is_dir) {
+                    el.innerHTML = `<i data-lucide="folder" class="w-3.5 h-3.5 text-blue-400 shrink-0"></i> <span class="font-medium text-slate-200">${node.name}</span>`;
+                    parentEl.appendChild(el);
+                    if (node.children && node.children.length > 0) {
+                        renderTreeNodes(node.children, parentEl, depth + 1);
+                    }
+                } else {
+                    const isSelected = node.path === activeFilePath;
+                    if (isSelected) el.classList.add('bg-slate-800', 'text-white', 'font-bold');
+                    el.innerHTML = `<i data-lucide="file-code" class="w-3.5 h-3.5 text-emerald-400 shrink-0"></i> <span>${node.name}</span>`;
+                    el.onclick = () => {
+                        loadFileContent(node.path);
+                        document.querySelectorAll('#file-tree-container > div').forEach(d => d.classList.remove('bg-slate-800', 'text-white', 'font-bold'));
+                        el.classList.add('bg-slate-800', 'text-white', 'font-bold');
+                    };
+                    parentEl.appendChild(el);
+                }
+            });
+            lucide.createIcons();
+        }
+
+        async function loadFileContent(filePath) {
+            activeFilePath = filePath;
+            document.getElementById('active-file-label').textContent = filePath;
+            const editorTextarea = document.getElementById('code-editor-textarea');
+            editorTextarea.value = "Loading file content...";
+
+            try {
+                const res = await fetch(`/api/workspace/file?path=${encodeURIComponent(filePath)}`);
+                const data = await res.json();
+                editorTextarea.value = data.content || "";
+            } catch (err) {
+                editorTextarea.value = `// Error reading file: ${err.message}`;
+            }
+        }
+
+        async function saveActiveFile() {
+            const saveBtn = document.getElementById('save-file-btn');
+            const editorTextarea = document.getElementById('code-editor-textarea');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Saving...';
+            lucide.createIcons();
+
+            try {
+                const res = await fetch('/api/workspace/file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: activeFilePath,
+                        content: editorTextarea.value
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.text();
+                    throw new Error(err || 'Failed to save file');
+                }
+
+                showActionToast(`✓ Saved: ${activeFilePath}`);
+            } catch (err) {
+                alert("Error saving file: " + err.message);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i data-lucide="save" class="w-3.5 h-3.5"></i> Save File (Ctrl+S)';
+                lucide.createIcons();
+            }
         }
 
         // Verification / Solution Submission

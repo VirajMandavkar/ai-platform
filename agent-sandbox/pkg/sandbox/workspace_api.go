@@ -116,9 +116,36 @@ func buildTree(root, relPath string) ([]*FileNode, error) {
 	return nodes, nil
 }
 
-// HandleGetWorkspaceFile returns file content for code viewer
+// HandleGetWorkspaceFile returns file content for code viewer or saves file edits
 func HandleGetWorkspaceFile(workspaceDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			var payload struct {
+				Path    string `json:"path"`
+				Content string `json:"content"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+			if payload.Path == "" || strings.Contains(payload.Path, "..") {
+				http.Error(w, "Invalid path", http.StatusBadRequest)
+				return
+			}
+			fullPath := filepath.Join(workspaceDir, payload.Path)
+			if err := os.WriteFile(fullPath, []byte(payload.Content), 0644); err != nil {
+				http.Error(w, "Failed to save file: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status":  "saved",
+				"path":    payload.Path,
+				"message": "File saved successfully to workspace",
+			})
+			return
+		}
+
 		relPath := r.URL.Query().Get("path")
 		if relPath == "" || strings.Contains(relPath, "..") {
 			http.Error(w, "Invalid path", http.StatusBadRequest)
