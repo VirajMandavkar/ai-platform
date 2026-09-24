@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Candidate Workspace | VibeScout Sandbox</title>
+    <title>Candidate Workspace | TriageHubs Sandbox</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
@@ -172,7 +172,7 @@
                 <div class="w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-white font-bold text-xs">
                     <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
                 </div>
-                <span class="font-bold text-sm text-slate-200">VibeScout Sandbox</span>
+                <span class="font-bold text-sm text-slate-200">TriageHubs Sandbox</span>
             </div>
             <div class="h-4 w-px bg-slate-700"></div>
             <div id="session-badge" class="text-xs font-mono text-slate-400">
@@ -288,13 +288,32 @@
                     <button onclick="pasteToTerminal()" title="Paste to Terminal (Ctrl+V)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] font-mono flex items-center gap-1 transition">
                         <i data-lucide="clipboard" class="w-3 h-3"></i> Paste
                     </button>
-                    <span class="text-[10px] text-slate-500 font-mono ml-2">pty: /dev/pts/1</span>
+                    <span id="active-pty-label" class="text-[10px] text-slate-500 font-mono ml-2">term: 1 (claude)</span>
                 </div>
             </div>
 
-            <!-- View 1: xterm.js Mount -->
-            <div id="view-terminal" class="flex-grow p-2 bg-black overflow-hidden flex flex-col">
-                <div id="terminal" class="flex-grow overflow-hidden"></div>
+            <!-- View 1: Multi-Terminal Container with Tab Bar -->
+            <div id="view-terminal" class="flex-grow bg-black overflow-hidden flex flex-col">
+                <!-- Terminal Sub-Tab Bar -->
+                <div class="h-9 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between px-3 shrink-0 select-none">
+                    <!-- Tabs List -->
+                    <div id="terminal-tab-list" class="flex items-center gap-1.5 overflow-x-auto py-1">
+                        <!-- Populated by JavaScript -->
+                    </div>
+
+                    <!-- Right Controls: Add Terminal Tab Button -->
+                    <div class="flex items-center gap-2">
+                        <button id="btn-add-term" onclick="addNewTerminalTab()" title="Open new Bash shell inside this container (e.g. tests, git, curl)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded text-[11px] font-mono flex items-center gap-1.5 transition border border-slate-700 shadow-sm">
+                            <i data-lucide="plus" class="w-3.5 h-3.5 text-emerald-400"></i>
+                            <span>New Shell</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Terminals Screen Area -->
+                <div id="terminals-container" class="flex-grow relative overflow-hidden p-2 bg-black">
+                    <!-- Terminals dynamically mounted here -->
+                </div>
             </div>
 
             <!-- View 2: Code Editor & Workspace Tree -->
@@ -368,7 +387,8 @@
         const urlParams = new URLSearchParams(window.location.search);
         let activeToken = urlParams.get('token') || urlParams.get('sessionId') || urlParams.get('cohort') || '';
         if (!activeToken) {
-            activeToken = 'demo_' + Math.random().toString(16).substring(2, 8);
+            alert('A valid proctored assessment token is required to enter the sandbox environment. Redirecting to homepage...');
+            window.location.href = '/';
         }
         document.getElementById('input-token').value = activeToken;
 
@@ -549,12 +569,81 @@
             startProctoredWorkspace();
         });
 
-        // Initialize Workspace & Connect Socket
-        function startProctoredWorkspace() {
-            isProctoredSessionActive = true;
+        // Multi-Terminal Workspace Engine
+        const terminalTabs = {}; // termId -> { term, fitAddon, socket, containerEl, termType, title, canClose }
+        let activeTermId = '1';
+        let termIdCounter = 1;
+        const MAX_TERMINALS = 4;
 
-            // Initialize xterm.js
-            terminal = new Terminal({
+        function renderTerminalTabs() {
+            const listEl = document.getElementById('terminal-tab-list');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+
+            Object.keys(terminalTabs).forEach(id => {
+                const tab = terminalTabs[id];
+                const isActive = id === activeTermId;
+
+                const btn = document.createElement('div');
+                btn.className = `flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-mono cursor-pointer transition select-none ${
+                    isActive 
+                        ? 'bg-slate-800 text-blue-400 border border-slate-700 shadow-sm font-semibold' 
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                }`;
+                btn.onclick = () => switchTerminalTab(id);
+
+                const icon = document.createElement('i');
+                icon.setAttribute('data-lucide', tab.termType === 'claude' ? 'bot' : 'terminal');
+                icon.className = 'w-3.5 h-3.5';
+                btn.appendChild(icon);
+
+                const titleSpan = document.createElement('span');
+                titleSpan.textContent = tab.title;
+                btn.appendChild(titleSpan);
+
+                if (tab.termType === 'claude') {
+                    const dot = document.createElement('span');
+                    dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 ml-0.5 animate-pulse';
+                    btn.appendChild(dot);
+                }
+
+                if (tab.canClose) {
+                    const closeBtn = document.createElement('button');
+                    closeBtn.className = 'ml-1 hover:text-red-400 hover:bg-red-950/40 rounded p-0.5 transition text-slate-500 font-bold';
+                    closeBtn.title = 'Close terminal';
+                    closeBtn.innerHTML = '×';
+                    closeBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        closeTerminalTab(id);
+                    };
+                    btn.appendChild(closeBtn);
+                }
+
+                listEl.appendChild(btn);
+            });
+
+            const ptyLabel = document.getElementById('active-pty-label');
+            if (ptyLabel && terminalTabs[activeTermId]) {
+                ptyLabel.textContent = `term: ${activeTermId} (${terminalTabs[activeTermId].termType})`;
+            }
+
+            if (window.lucide && typeof lucide.createIcons === 'function') {
+                lucide.createIcons();
+            }
+        }
+
+        function createTerminalTab(termId, termType, title, canClose = false) {
+            const container = document.getElementById('terminals-container');
+            if (!container) return;
+
+            // Create wrapper div
+            const termDiv = document.createElement('div');
+            termDiv.id = `term-box-${termId}`;
+            termDiv.className = 'absolute inset-0';
+            container.appendChild(termDiv);
+
+            // Initialize xterm
+            const term = new Terminal({
                 cursorBlink: true,
                 theme: {
                     background: '#000000',
@@ -574,88 +663,167 @@
                 lineHeight: 1.2
             });
 
-            fitAddon = new FitAddon.FitAddon();
-            terminal.loadAddon(fitAddon);
-            terminal.open(document.getElementById('terminal'));
-            fitAddon.fit();
+            const fit = new FitAddon.FitAddon();
+            term.loadAddon(fit);
+            term.open(termDiv);
+            fit.fit();
 
-            window.addEventListener('resize', () => { 
-                if (fitAddon) fitAddon.fit(); 
-            });
-
-            // Native Copy/Paste handler inside xterm.js
-            terminal.attachCustomKeyEventHandler((event) => {
-                // Copy (Ctrl+C / Cmd+C / Ctrl+Shift+C): If text is selected in xterm, copy it!
+            // Keyboard shortcut handler inside xterm.js
+            term.attachCustomKeyEventHandler((event) => {
                 if ((event.ctrlKey || event.metaKey) && (event.key === 'c' || event.key === 'C')) {
-                    if (terminal.hasSelection()) {
-                        navigator.clipboard.writeText(terminal.getSelection());
-                        showActionToast('Copied to clipboard');
-                        return false; // don't send SIGINT when user intended to copy
+                    if (term.hasSelection()) {
+                        navigator.clipboard.writeText(term.getSelection());
+                        showActionToast('Copied terminal selection');
+                        return false;
                     }
-                    // No text selected -> allow Ctrl+C to send SIGINT (\x03) to cancel terminal process
-                    return true;
-                }
-                // Paste (Ctrl+V / Cmd+V / Ctrl+Shift+V)
-                if ((event.ctrlKey || event.metaKey) && (event.key === 'v' || event.key === 'V')) {
                     return true;
                 }
                 return true;
             });
 
-            // Global paste listener for terminal
+            // WebSocket Connection
+            const host = window.location.host || 'localhost:8081';
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${host}/ws?sessionId=${encodeURIComponent(activeToken)}&termId=${termId}&termType=${termType}`;
+
+            term.writeln('\x1b[1;36m[TriageHubs Sandbox Engine v2.0 - Container Terminal ' + termId + ']\x1b[0m');
+            term.writeln('\x1b[90mSession: ' + activeToken + ' | Shell: ' + termType + '\x1b[0m');
+            term.writeln('Connecting to isolated workspace environment...\r\n');
+
+            let ws = null;
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    const connBadge = document.getElementById('connection-status');
+                    if (connBadge) {
+                        connBadge.className = "flex items-center gap-1.5 text-emerald-400 font-medium";
+                        connBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Connected</span>';
+                    }
+                    if (termType === 'claude') {
+                        term.writeln('\x1b[1;32m[Connected]\x1b[0m Container active. Claude Code initialized.');
+                        term.writeln('Type \x1b[1;33mclaude --dangerously-skip-permissions\x1b[0m to interact with AI.\r\n');
+                    } else {
+                        term.writeln('\x1b[1;32m[Connected]\x1b[0m Bash shell active in /home/sandboxuser/workspace.');
+                        term.writeln('Run tests (\x1b[1;33mgo test -v ./...\x1b[0m), git, or system commands here.\r\n');
+                    }
+                };
+
+                ws.onmessage = (event) => {
+                    term.write(event.data);
+                };
+
+                term.onData((data) => {
+                    if (isLockedOut) return;
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(data);
+                    }
+                });
+
+                ws.onclose = () => {
+                    term.writeln('\r\n\x1b[1;31m[Disconnected]\x1b[0m Shell process closed.');
+                };
+
+                ws.onerror = (err) => {
+                    term.writeln('\r\n\x1b[1;31mConnection error on terminal ' + termId + '\x1b[0m');
+                };
+            } catch (e) {
+                term.writeln('\r\n\x1b[1;31mConnection error: ' + e.message + '\x1b[0m');
+            }
+
+            terminalTabs[termId] = {
+                term: term,
+                fitAddon: fit,
+                socket: ws,
+                containerEl: termDiv,
+                termType: termType,
+                title: title,
+                canClose: canClose
+            };
+
+            switchTerminalTab(termId);
+        }
+
+        function switchTerminalTab(termId) {
+            if (!terminalTabs[termId]) return;
+            activeTermId = termId;
+
+            Object.keys(terminalTabs).forEach(id => {
+                const el = terminalTabs[id].containerEl;
+                if (id === termId) {
+                    el.classList.remove('hidden');
+                    terminal = terminalTabs[id].term;
+                    fitAddon = terminalTabs[id].fitAddon;
+                    socket = terminalTabs[id].socket;
+                    setTimeout(() => {
+                        terminalTabs[id].fitAddon.fit();
+                        terminalTabs[id].term.focus();
+                    }, 20);
+                } else {
+                    el.classList.add('hidden');
+                }
+            });
+
+            renderTerminalTabs();
+        }
+
+        function addNewTerminalTab() {
+            if (Object.keys(terminalTabs).length >= MAX_TERMINALS) {
+                showActionToast('Maximum ' + MAX_TERMINALS + ' terminal sessions allowed');
+                return;
+            }
+            termIdCounter++;
+            const newId = String(termIdCounter);
+            createTerminalTab(newId, 'bash', `Terminal ${termIdCounter} (bash)`, true);
+            showActionToast(`Spawned Terminal ${termIdCounter} (bash shell)`);
+        }
+
+        function closeTerminalTab(termId) {
+            if (!terminalTabs[termId] || !terminalTabs[termId].canClose) return;
+
+            const tab = terminalTabs[termId];
+            if (tab.socket) {
+                tab.socket.close();
+            }
+            if (tab.term) {
+                tab.term.dispose();
+            }
+            if (tab.containerEl && tab.containerEl.parentNode) {
+                tab.containerEl.parentNode.removeChild(tab.containerEl);
+            }
+
+            delete terminalTabs[termId];
+
+            if (activeTermId === termId) {
+                const remaining = Object.keys(terminalTabs);
+                switchTerminalTab(remaining.length > 0 ? remaining[0] : '1');
+            } else {
+                renderTerminalTabs();
+            }
+            showActionToast(`Closed Terminal ${termId}`);
+        }
+
+        // Initialize Workspace & Connect Socket
+        function startProctoredWorkspace() {
+            isProctoredSessionActive = true;
+
+            // Launch initial Claude Code terminal tab
+            createTerminalTab('1', 'claude', 'Claude Code', false);
+
+            window.addEventListener('resize', () => { 
+                if (fitAddon) fitAddon.fit(); 
+            });
+
+            // Global paste listener for whichever terminal is active
             window.addEventListener('paste', (e) => {
                 if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
-                    return; // native inputs handle paste normally
+                    return;
                 }
                 const text = (e.clipboardData || window.clipboardData).getData('text');
                 if (text && socket && socket.readyState === WebSocket.OPEN) {
                     socket.send(text);
                 }
             });
-
-            terminal.writeln('\x1b[1;36m[VibeScout Sandbox Engine v2.0 - Proctored Session]\x1b[0m');
-            terminal.writeln('\x1b[90mSession ID: ' + activeToken + '\x1b[0m');
-            terminal.writeln('Connecting to isolated workspace environment...\r\n');
-
-            // WebSocket Connection
-            const host = window.location.host || 'localhost:8081';
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${wsProtocol}//${host}/ws?sessionId=${encodeURIComponent(activeToken)}`;
-
-            try {
-                socket = new WebSocket(wsUrl);
-
-                socket.onopen = () => {
-                    document.getElementById('connection-status').className = "flex items-center gap-1.5 text-emerald-400 font-medium";
-                    document.getElementById('connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Connected</span>';
-                    terminal.writeln('\x1b[1;32m[Connected]\x1b[0m You are now inside your isolated container.');
-                    terminal.writeln('Type \x1b[1;33mclaude --dangerously-skip-permissions\x1b[0m to initiate Claude Code.\r\n');
-                };
-
-                socket.onmessage = (event) => {
-                    terminal.write(event.data);
-                };
-
-                terminal.onData((data) => {
-                    if (isLockedOut) return; // Block input while in red-screen lockout
-                    if (socket && socket.readyState === WebSocket.OPEN) {
-                        socket.send(data);
-                    }
-                });
-
-                socket.onclose = () => {
-                    document.getElementById('connection-status').className = "flex items-center gap-1.5 text-red-400 font-medium";
-                    document.getElementById('connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span>Disconnected</span>';
-                    terminal.writeln('\r\n\x1b[1;31m[Disconnected]\x1b[0m Connection to container dropped.');
-                };
-
-                socket.onerror = (err) => {
-                    document.getElementById('connection-status').className = "flex items-center gap-1.5 text-red-400 font-medium";
-                    document.getElementById('connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span>Error</span>';
-                };
-            } catch (e) {
-                terminal.writeln('\r\n\x1b[1;31mConnection initialization failed: ' + e.message + '\x1b[0m');
-            }
 
             // Start Assessment Timer
             startTimer();

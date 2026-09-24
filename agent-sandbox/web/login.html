@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recruiter Portal | VibeScout</title>
+    <title>Recruiter Portal | TriageHubs</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -27,15 +27,15 @@
         body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col justify-between">
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col justify-between selection:bg-blue-600 selection:text-white">
 
-    <!-- Top Simple Nav -->
+    <!-- Top Navigation -->
     <header class="py-6 px-8 max-w-7xl mx-auto w-full flex items-center justify-between">
         <a href="/" class="flex items-center gap-2">
             <div class="w-8 h-8 rounded-lg bg-brandDark flex items-center justify-center text-white">
                 <i data-lucide="terminal" class="w-5 h-5"></i>
             </div>
-            <span class="text-xl font-bold tracking-tight text-brandDark">VibeScout</span>
+            <span class="text-xl font-bold tracking-tight text-brandDark">TriageHubs</span>
         </a>
         <a href="/" class="text-xs font-semibold text-slate-500 hover:text-slate-900 flex items-center gap-1 transition">
             <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Back to Homepage
@@ -45,24 +45,16 @@
     <!-- Center Card -->
     <main class="flex-grow flex items-center justify-center px-4 py-8">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-8 relative overflow-hidden">
-            <div class="absolute top-0 left-0 w-full h-1.5 bg-brandBlue"></div>
+            <div id="card-top-bar" class="absolute top-0 left-0 w-full h-1.5 bg-brandBlue"></div>
 
-            <!-- Tab Switcher -->
-            <div class="flex items-center rounded-lg bg-slate-100 p-1 mb-6">
+            <!-- Tab Switcher (Hidden when activating an invite) -->
+            <div id="tab-switcher" class="flex items-center rounded-lg bg-slate-100 p-1 mb-6">
                 <button type="button" id="tab-signin" class="flex-1 py-2 text-xs font-bold rounded-md bg-white text-slate-900 shadow-sm transition">
                     Sign In
                 </button>
                 <button type="button" id="tab-signup" class="flex-1 py-2 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900 transition">
-                    Create Account (Start Hiring)
+                    Request Pilot / Activate
                 </button>
-            </div>
-
-            <!-- Header Titles -->
-            <div class="mb-6">
-                <h1 id="form-title" class="text-2xl font-extrabold text-slate-900 tracking-tight">Welcome back</h1>
-                <p id="form-subtext" class="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                    Already hiring with VibeScout? Enter your credentials to access your candidate pipelines and telemetry.
-                </p>
             </div>
 
             <!-- Error Banner -->
@@ -77,186 +69,472 @@
                 <span id="success-message">Success! Redirecting...</span>
             </div>
 
-            <!-- Form -->
-            <form id="auth-form" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Work Email / Username</label>
-                    <input type="text" id="email" required 
-                           class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brandBlue focus:bg-white transition"
-                           placeholder="recruiter@acmecorp.com"
-                           value="admin@acme.com">
+            <!-- VIEW 1: Standard Sign In Form -->
+            <div id="view-signin">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Welcome back</h1>
+                    <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                        Enter your credentials to access your candidate pipelines, container sandboxes, and telemetry scorecards.
+                    </p>
                 </div>
 
-                <div>
-                    <div class="flex items-center justify-between mb-1.5">
-                        <label class="block text-xs font-semibold text-slate-700">Password</label>
-                        <span id="demo-hint" class="text-[10px] text-brandBlue font-semibold">(Default: admin)</span>
+                <form id="signin-form" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Work Email / Username</label>
+                        <input type="text" id="signin-email" required 
+                               class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brandBlue focus:bg-white transition"
+                               placeholder="recruiter@company.com">
                     </div>
-                    <input type="password" id="password" required 
-                           class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brandBlue focus:bg-white transition"
-                           placeholder="••••••••"
-                           value="admin">
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-700">Password</label>
+                        </div>
+                        <input type="password" id="signin-password" required 
+                               class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brandBlue focus:bg-white transition"
+                               placeholder="••••••••">
+                    </div>
+
+                    <button type="submit" id="btn-signin-submit" 
+                            class="w-full py-3 bg-brandDark text-white font-semibold rounded-lg hover:bg-slate-800 transition shadow-md shadow-slate-200 text-sm flex items-center justify-center gap-2 mt-2">
+                        <span>Sign In to Dashboard</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </form>
+
+                <div class="mt-6 pt-5 border-t border-slate-100 text-center">
+                    <p class="text-xs text-slate-500">
+                        Need workspace access? 
+                        <button type="button" onclick="setMode('gated')" class="text-brandBlue font-semibold hover:underline ml-1">
+                            Request pilot access
+                        </button>
+                    </p>
+                </div>
+            </div>
+
+            <!-- VIEW 2: Invite Activation Form (Option A Activated) -->
+            <div id="view-invite-activate" class="hidden">
+                <div class="mb-5">
+                    <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 mb-3">
+                        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600"></i> Verified Enterprise Invite
+                    </div>
+                    <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Activate Workspace</h1>
+                    <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                        Welcome, <span id="invite-company-name" class="font-bold text-slate-900">Your Company</span>! Set your admin password to initialize your private recruiter portal.
+                    </p>
                 </div>
 
-                <button type="submit" id="submit-btn" 
-                        class="w-full py-3 bg-brandDark text-white font-semibold rounded-lg hover:bg-slate-800 transition shadow-md shadow-slate-200 text-sm flex items-center justify-center gap-2 mt-2">
-                    <span>Sign In to Dashboard</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                </button>
+                <form id="invite-form" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Authorized Account Email</label>
+                        <input type="text" id="invite-email" readonly 
+                               class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-600 cursor-not-allowed font-medium select-none">
+                    </div>
 
-                <!-- One Click Demo Login -->
-                <button type="button" id="quick-demo-btn" 
-                        class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition text-xs flex items-center justify-center gap-1.5 border border-slate-200">
-                    <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-500"></i> Instant 1-Click Demo Login
-                </button>
-            </form>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Set Workspace Password</label>
+                        <input type="password" id="invite-password" required minlength="3"
+                               class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brandBlue focus:bg-white transition"
+                               placeholder="Choose secure password">
+                    </div>
 
-            <!-- Bottom Toggle Link -->
-            <div class="mt-6 pt-5 border-t border-slate-100 text-center">
-                <p id="toggle-prompt" class="text-xs text-slate-500">
-                    New to VibeScout? 
-                    <button type="button" id="toggle-btn" class="text-brandBlue font-semibold hover:underline ml-1">
-                        Create company workspace
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Confirm Password</label>
+                        <input type="password" id="invite-password-confirm" required minlength="3"
+                               class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brandBlue focus:bg-white transition"
+                               placeholder="Re-enter password">
+                    </div>
+
+                    <button type="submit" id="btn-activate-submit" 
+                            class="w-full py-3.5 bg-brandBlue text-white font-semibold rounded-lg hover:bg-blue-600 transition shadow-lg shadow-blue-500/20 text-sm flex items-center justify-center gap-2 mt-2">
+                        <span>Activate & Launch Workspace</span> <i data-lucide="check" class="w-4 h-4"></i>
                     </button>
-                </p>
+                </form>
+
+                <div class="mt-6 pt-5 border-t border-slate-100 text-center">
+                    <p class="text-xs text-slate-500">
+                        Have questions? Contact <span class="font-semibold text-slate-700">support@triagehubs.com</span>
+                    </p>
+                </div>
             </div>
+
+            <!-- VIEW 3: Private Pilot Gated Screen (Option A Gating) -->
+            <div id="view-gated" class="hidden">
+                <div class="mb-5 text-center">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-600 flex items-center justify-center mx-auto mb-3">
+                        <i data-lucide="lock" class="w-6 h-6"></i>
+                    </div>
+                    <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">Private Pilot Access</h1>
+                    <p class="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-sm mx-auto">
+                        TriageHubs provides dedicated, isolated Docker sandboxes and key-pool rate limiting for enterprise teams. Direct public registration is closed.
+                    </p>
+                </div>
+
+                <!-- Code Input for uninvited visitors with a token -->
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-5">
+                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Have an activation code?</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="manual-code-input" placeholder="e.g. inv_acme_pilot2026" 
+                               class="flex-grow px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-brandBlue">
+                        <button type="button" onclick="verifyManualCode()" 
+                                class="px-3.5 py-1.5 bg-brandDark text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition">
+                            Verify
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pilot Request Form Trigger -->
+                <div id="pilot-request-box">
+                    <button type="button" onclick="togglePilotForm()" id="btn-toggle-pilot"
+                            class="w-full py-3 bg-brandBlue text-white font-semibold rounded-lg hover:bg-blue-600 transition shadow-md shadow-blue-500/20 text-xs flex items-center justify-center gap-1.5">
+                        <i data-lucide="mail" class="w-4 h-4"></i> Request Private Enterprise Pilot
+                    </button>
+                </div>
+
+                <!-- Collapsible Pilot Lead Request Form -->
+                <form id="pilot-lead-form" class="hidden space-y-3 mt-4 border-t border-slate-100 pt-4 text-left">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-700 mb-1">Your Full Name</label>
+                        <input type="text" id="pilot-name" required placeholder="Sarah Jenkins"
+                               class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brandBlue">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-700 mb-1">Work Email</label>
+                        <input type="email" id="pilot-email" required placeholder="sarah@company.com"
+                               class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brandBlue">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-700 mb-1">Company / Team Name</label>
+                        <input type="text" id="pilot-company" required placeholder="Stripe / Acme Systems"
+                               class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brandBlue">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-700 mb-1">Hiring Volume</label>
+                            <input type="text" id="pilot-teamsize" placeholder="e.g. 15 in Q3"
+                                   class="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brandBlue">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-700 mb-1">AI Stack</label>
+                            <select id="pilot-notes" class="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brandBlue">
+                                <option value="Claude Code">Claude Code CLI</option>
+                                <option value="Anthropic API">Anthropic API</option>
+                                <option value="General Systems">General Systems</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" id="btn-submit-pilot" 
+                            class="w-full py-2.5 bg-brandDark text-white font-semibold rounded-lg hover:bg-slate-800 transition text-xs flex items-center justify-center gap-1.5 mt-2">
+                        <span>Submit Pilot Booking Request</span> <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                    </button>
+                </form>
+
+                <div class="mt-6 pt-5 border-t border-slate-100 text-center">
+                    <p class="text-xs text-slate-500">
+                        Already have an account? 
+                        <button type="button" onclick="setMode('signin')" class="text-brandBlue font-semibold hover:underline ml-1">
+                            Sign in here
+                        </button>
+                    </p>
+                </div>
+            </div>
+
+            <!-- VIEW 4: Invalid Invite Notice -->
+            <div id="view-invalid-invite" class="hidden text-center py-4">
+                <div class="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="alert-octagon" class="w-6 h-6"></i>
+                </div>
+                <h2 class="text-lg font-bold text-slate-900 mb-1">Invite Expired or Invalid</h2>
+                <p id="invalid-invite-reason" class="text-xs text-slate-500 mb-6 leading-relaxed">
+                    This activation token is unrecognized or has already been redeemed by another administrator.
+                </p>
+                <div class="space-y-2">
+                    <button type="button" onclick="setMode('gated')" 
+                            class="w-full py-2.5 bg-brandBlue text-white font-semibold rounded-lg hover:bg-blue-600 transition text-xs">
+                        Request New Pilot Access
+                    </button>
+                    <button type="button" onclick="setMode('signin')" 
+                            class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition text-xs">
+                        Back to Sign In
+                    </button>
+                </div>
+            </div>
+
         </div>
     </main>
 
     <!-- Footer -->
     <footer class="py-6 text-center text-xs text-slate-400">
-        © 2026 VibeScout Inc. • Enterprise Candidate Evaluation
+        © 2026 TriageHubs Inc. • Enterprise Candidate Evaluation
     </footer>
 
     <script>
+        let currentMode = 'signin'; // 'signin', 'gated', 'invite_activate', 'invalid_invite'
+        let verifiedInviteCode = '';
+
+        function setMode(mode) {
+            currentMode = mode;
+            hideMessages();
+
+            const tabSignin = document.getElementById('tab-signin');
+            const tabSignup = document.getElementById('tab-signup');
+            const tabSwitcher = document.getElementById('tab-switcher');
+
+            const viewSignin = document.getElementById('view-signin');
+            const viewActivate = document.getElementById('view-invite-activate');
+            const viewGated = document.getElementById('view-gated');
+            const viewInvalid = document.getElementById('view-invalid-invite');
+
+            [viewSignin, viewActivate, viewGated, viewInvalid].forEach(el => el.classList.add('hidden'));
+
+            if (mode === 'signin') {
+                viewSignin.classList.remove('hidden');
+                tabSwitcher.classList.remove('hidden');
+                tabSignin.className = "flex-1 py-2 text-xs font-bold rounded-md bg-white text-slate-900 shadow-sm transition";
+                tabSignup.className = "flex-1 py-2 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900 transition";
+            } else if (mode === 'gated') {
+                viewGated.classList.remove('hidden');
+                tabSwitcher.classList.remove('hidden');
+                tabSignup.className = "flex-1 py-2 text-xs font-bold rounded-md bg-white text-slate-900 shadow-sm transition";
+                tabSignin.className = "flex-1 py-2 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900 transition";
+            } else if (mode === 'invite_activate') {
+                viewActivate.classList.remove('hidden');
+                tabSwitcher.classList.add('hidden'); // Gated activation locks tabs
+            } else if (mode === 'invalid_invite') {
+                viewInvalid.classList.remove('hidden');
+                tabSwitcher.classList.add('hidden');
+            }
+
+            if (window.lucide && typeof lucide.createIcons === 'function') {
+                lucide.createIcons();
+            }
+        }
+
+        function showMessage(type, msg) {
+            const errorBox = document.getElementById('error-box');
+            const successBox = document.getElementById('success-box');
+            if (type === 'error') {
+                document.getElementById('error-message').textContent = msg;
+                errorBox.classList.remove('hidden');
+                successBox.classList.add('hidden');
+            } else {
+                document.getElementById('success-message').textContent = msg;
+                successBox.classList.remove('hidden');
+                errorBox.classList.add('hidden');
+            }
+        }
+
+        function hideMessages() {
+            document.getElementById('error-box').classList.add('hidden');
+            document.getElementById('success-box').classList.add('hidden');
+        }
+
+        function togglePilotForm() {
+            const form = document.getElementById('pilot-lead-form');
+            form.classList.toggle('hidden');
+            if (window.lucide && typeof lucide.createIcons === 'function') {
+                lucide.createIcons();
+            }
+        }
+
+        async function verifyInviteToken(code) {
+            if (!code) return;
+            hideMessages();
+
+            try {
+                const res = await fetch(`/api/admin/invite/verify?code=${encodeURIComponent(code)}`);
+                const data = await res.json();
+
+                if (data.valid) {
+                    verifiedInviteCode = code;
+                    document.getElementById('invite-company-name').textContent = data.company_name || 'Your Company';
+                    document.getElementById('invite-email').value = data.email || '';
+                    setMode('invite_activate');
+                } else {
+                    document.getElementById('invalid-invite-reason').textContent = data.error || 'Invite code expired or invalid.';
+                    setMode('invalid_invite');
+                }
+            } catch (err) {
+                showMessage('error', 'Error verifying invite token: ' + err.message);
+            }
+        }
+
+        function verifyManualCode() {
+            const input = document.getElementById('manual-code-input');
+            const code = input ? input.value.trim() : '';
+            if (!code) {
+                showMessage('error', 'Please enter an invite code to verify.');
+                return;
+            }
+            verifyInviteToken(code);
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             if (window.lucide && typeof lucide.createIcons === 'function') {
                 try { lucide.createIcons(); } catch(e) {}
             }
 
-            const tabSignin = document.getElementById('tab-signin');
-            const tabSignup = document.getElementById('tab-signup');
-            const formTitle = document.getElementById('form-title');
-            const formSubtext = document.getElementById('form-subtext');
-            const submitBtn = document.getElementById('submit-btn');
-            const toggleBtn = document.getElementById('toggle-btn');
-            const errorBox = document.getElementById('error-box');
-            const errorMessage = document.getElementById('error-message');
-            const successBox = document.getElementById('success-box');
-            const successMessage = document.getElementById('success-message');
-            const demoHint = document.getElementById('demo-hint');
-            const authForm = document.getElementById('auth-form');
-            const quickDemoBtn = document.getElementById('quick-demo-btn');
-            const emailInput = document.getElementById('email');
-            const passwordInput = document.getElementById('password');
+            // Check if already authenticated
+            fetch('/api/admin/me')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.authenticated && d.username) {
+                        window.location.href = '/dashboard.html';
+                    }
+                })
+                .catch(() => {});
 
-            let mode = 'signin'; // 'signin' or 'signup'
-
-            function setMode(newMode) {
-                mode = newMode;
-                if (errorBox) errorBox.classList.add('hidden');
-                if (successBox) successBox.classList.add('hidden');
-
-                if (mode === 'signin') {
-                    if (tabSignin) tabSignin.className = "flex-1 py-2 text-xs font-bold rounded-md bg-white text-slate-900 shadow-sm transition";
-                    if (tabSignup) tabSignup.className = "flex-1 py-2 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900 transition";
-                    if (formTitle) formTitle.textContent = "Welcome back";
-                    if (formSubtext) formSubtext.textContent = "Already hiring with VibeScout? Enter your credentials to access your candidate pipelines and telemetry.";
-                    if (submitBtn) submitBtn.querySelector('span').textContent = "Sign In to Dashboard";
-                    if (demoHint) demoHint.style.display = 'inline';
-                    if (toggleBtn) toggleBtn.textContent = "Create company workspace";
-                    const prompt = document.getElementById('toggle-prompt');
-                    if (prompt && prompt.firstChild) prompt.firstChild.textContent = "New to VibeScout? ";
-                } else {
-                    if (tabSignup) tabSignup.className = "flex-1 py-2 text-xs font-bold rounded-md bg-white text-slate-900 shadow-sm transition";
-                    if (tabSignin) tabSignin.className = "flex-1 py-2 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900 transition";
-                    if (formTitle) formTitle.textContent = "Start Hiring with VibeScout";
-                    if (formSubtext) formSubtext.textContent = "Create your recruiter account to begin issuing instant isolated sandbox magic links.";
-                    if (submitBtn) submitBtn.querySelector('span').textContent = "Create Account & Start Hiring";
-                    if (demoHint) demoHint.style.display = 'none';
-                    if (toggleBtn) toggleBtn.textContent = "Sign in here";
-                    const prompt = document.getElementById('toggle-prompt');
-                    if (prompt && prompt.firstChild) prompt.firstChild.textContent = "Already hiring? ";
-                }
-            }
-
-            // Check URL params for mode
+            // Parse URL parameters
             const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('mode') === 'signup') {
-                setMode('signup');
+            const inviteParam = urlParams.get('invite');
+            const modeParam = urlParams.get('mode');
+
+            if (inviteParam) {
+                verifyInviteToken(inviteParam);
+            } else if (modeParam === 'signup') {
+                setMode('gated');
             } else {
                 setMode('signin');
             }
 
-            if (tabSignin) tabSignin.addEventListener('click', () => setMode('signin'));
-            if (tabSignup) tabSignup.addEventListener('click', () => setMode('signup'));
-            if (toggleBtn) toggleBtn.addEventListener('click', () => setMode(mode === 'signin' ? 'signup' : 'signin'));
+            document.getElementById('tab-signin').addEventListener('click', () => setMode('signin'));
+            document.getElementById('tab-signup').addEventListener('click', () => setMode('gated'));
 
-            async function performAuth(email, password, endpoint) {
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.classList.add('opacity-75');
-                }
-
-                try {
-                    const res = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: email, username: email, password: password })
-                    });
-
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.token) {
-                            localStorage.setItem('vibescout_token', data.token);
-                            localStorage.setItem('vibescout_user', data.user || email);
-                        }
-                        if (successBox) {
-                            successBox.classList.remove('hidden');
-                            if (successMessage) successMessage.textContent = mode === 'signin' ? "Authenticated! Opening dashboard..." : "Account created! Initializing dashboard...";
-                        }
-                        setTimeout(() => {
-                            window.location.href = '/dashboard.html';
-                        }, 300);
-                    } else {
-                        const text = await res.text();
-                        if (errorBox) {
-                            errorBox.classList.remove('hidden');
-                            if (errorMessage) errorMessage.textContent = text || "Authentication failed. Please check credentials.";
-                        }
-                    }
-                } catch (err) {
-                    if (errorBox) {
-                        errorBox.classList.remove('hidden');
-                        if (errorMessage) errorMessage.textContent = "Network error connecting to backend: " + err.message;
-                    }
-                } finally {
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                        submitBtn.classList.remove('opacity-75');
-                    }
-                }
-            }
-
-            if (authForm) {
-                authForm.addEventListener('submit', async (e) => {
+            // Sign In Submission
+            const signinForm = document.getElementById('signin-form');
+            if (signinForm) {
+                signinForm.addEventListener('submit', async (e) => {
                     e.preventDefault();
-                    if (errorBox) errorBox.classList.add('hidden');
-                    if (successBox) successBox.classList.add('hidden');
+                    hideMessages();
 
-                    const email = emailInput ? emailInput.value.trim() : '';
-                    const password = passwordInput ? passwordInput.value : '';
-                    const endpoint = mode === 'signin' ? '/api/admin/login' : '/api/admin/register';
+                    const email = document.getElementById('signin-email').value.trim();
+                    const password = document.getElementById('signin-password').value;
+                    const btn = document.getElementById('btn-signin-submit');
 
-                    await performAuth(email, password, endpoint);
+                    btn.disabled = true;
+                    btn.classList.add('opacity-75');
+
+                    try {
+                        const res = await fetch('/api/admin/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: email, username: email, password: password })
+                        });
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.token) {
+                                localStorage.setItem('triagehubs_token', data.token);
+                                localStorage.setItem('triagehubs_user', data.user || email);
+                                localStorage.setItem('vibescout_token', data.token);
+                                localStorage.setItem('vibescout_user', data.user || email);
+                            }
+                            showMessage('success', 'Authenticated! Opening recruiter dashboard...');
+                            setTimeout(() => {
+                                window.location.href = '/dashboard.html';
+                            }, 300);
+                        } else {
+                            const txt = await res.text();
+                            showMessage('error', txt || 'Invalid username or password');
+                        }
+                    } catch (err) {
+                        showMessage('error', 'Network error: ' + err.message);
+                    } finally {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-75');
+                    }
                 });
             }
 
-            // 1-Click Demo Login
-            if (quickDemoBtn) {
-                quickDemoBtn.addEventListener('click', async () => {
-                    if (emailInput) emailInput.value = 'admin@acme.com';
-                    if (passwordInput) passwordInput.value = 'admin';
-                    await performAuth('admin@acme.com', 'admin', '/api/admin/login');
+            // Invite Activation Submission
+            const inviteForm = document.getElementById('invite-form');
+            if (inviteForm) {
+                inviteForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    hideMessages();
+
+                    const p1 = document.getElementById('invite-password').value;
+                    const p2 = document.getElementById('invite-password-confirm').value;
+
+                    if (p1 !== p2) {
+                        showMessage('error', 'Passwords do not match. Please re-enter.');
+                        return;
+                    }
+
+                    const btn = document.getElementById('btn-activate-submit');
+                    btn.disabled = true;
+                    btn.classList.add('opacity-75');
+
+                    try {
+                        const res = await fetch('/api/admin/invite/activate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ code: verifiedInviteCode, password: p1 })
+                        });
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.token) {
+                                localStorage.setItem('triagehubs_token', data.token);
+                                localStorage.setItem('triagehubs_user', data.user);
+                                localStorage.setItem('vibescout_token', data.token);
+                                localStorage.setItem('vibescout_user', data.user);
+                            }
+                            showMessage('success', 'Workspace activated! Redirecting to dashboard...');
+                            setTimeout(() => {
+                                window.location.href = '/dashboard.html';
+                            }, 500);
+                        } else {
+                            const txt = await res.text();
+                            showMessage('error', txt || 'Activation failed');
+                        }
+                    } catch (err) {
+                        showMessage('error', 'Network error: ' + err.message);
+                    } finally {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-75');
+                    }
+                });
+            }
+
+            // Pilot Lead Submission
+            const pilotForm = document.getElementById('pilot-lead-form');
+            if (pilotForm) {
+                pilotForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    hideMessages();
+
+                    const btn = document.getElementById('btn-submit-pilot');
+                    btn.disabled = true;
+
+                    const payload = {
+                        fullName: document.getElementById('pilot-name').value.trim(),
+                        workEmail: document.getElementById('pilot-email').value.trim(),
+                        companyName: document.getElementById('pilot-company').value.trim(),
+                        teamSize: document.getElementById('pilot-teamsize').value,
+                        notes: document.getElementById('pilot-notes').value
+                    };
+
+                    try {
+                        const res = await fetch('/api/pilot/request', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            showMessage('success', data.message || 'Pilot request submitted! Check your inbox.');
+                            pilotForm.reset();
+                            pilotForm.classList.add('hidden');
+                        } else {
+                            const txt = await res.text();
+                            showMessage('error', txt || 'Failed to submit pilot request');
+                        }
+                    } catch (err) {
+                        showMessage('error', 'Network error: ' + err.message);
+                    } finally {
+                        btn.disabled = false;
+                    }
                 });
             }
         });

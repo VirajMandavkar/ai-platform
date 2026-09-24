@@ -19,18 +19,18 @@ func TestTelemetry_RecordEventsAndScorecard(t *testing.T) {
 		t.Errorf("initial integrity score should be 100, got %d", st.IntegrityScore)
 	}
 
-	// Record blur event (-5)
+	// Record blur event (-10)
 	RecordEvent(sessionID, "BLUR", "Tab switched")
 	st = GetOrCreate(sessionID)
-	if st.IntegrityScore != 95 {
-		t.Errorf("expected score 95 after blur, got %d", st.IntegrityScore)
+	if st.IntegrityScore != 90 {
+		t.Errorf("expected score 90 after blur, got %d", st.IntegrityScore)
 	}
 
 	// Record lockout (-15)
 	RecordEvent(sessionID, "LOCKOUT", "10s penalty")
 	st = GetOrCreate(sessionID)
-	if st.IntegrityScore != 80 {
-		t.Errorf("expected score 80 after lockout, got %d", st.IntegrityScore)
+	if st.IntegrityScore != 75 {
+		t.Errorf("expected score 75 after lockout, got %d", st.IntegrityScore)
 	}
 
 	// Record terminal frame

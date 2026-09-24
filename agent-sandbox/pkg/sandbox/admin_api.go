@@ -2,6 +2,7 @@ package sandbox
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -19,10 +20,11 @@ type InterviewSession struct {
 	ScenarioTitle  string    `json:"scenario_title"`
 	APIKey         string    `json:"api_key,omitempty"`
 	TargetProvider string    `json:"target_provider"`
-	DurationMins   int       `json:"duration_mins"`
-	Status         string    `json:"status"` // "INVITED", "IN_PROGRESS", "COMPLETED"
-	CreatedAt      time.Time `json:"created_at"`
-	InviteURL      string    `json:"invite_url"`
+	DurationMins      int       `json:"duration_mins"`
+	Status            string    `json:"status"` // "INVITED", "IN_PROGRESS", "COMPLETED"
+	RecruiterUsername string    `json:"recruiter_username,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
+	InviteURL         string    `json:"invite_url"`
 }
 
 // HandleListScenarios lists all available scenario templates
@@ -166,37 +168,61 @@ func HandleCreateInterview(baseURL string) http.HandlerFunc {
 		_, _ = rand.Read(b)
 		sessionID := fmt.Sprintf("cand_%x", b)
 
+		recruiter := GetAuthenticatedRecruiter(r)
+
 		inviteURL := fmt.Sprintf("%s/sandbox.html?token=%s", baseURL, sessionID)
 
-		session := &InterviewSession{
-			ID:             sessionID,
-			CandidateName:  req.CandidateName,
-			CandidateEmail: req.CandidateEmail,
-			ScenarioID:     req.ScenarioID,
-			ScenarioTitle:  req.ScenarioTitle,
-			APIKey:         req.APIKey,
-			TargetProvider: req.TargetProvider,
-			DurationMins:   req.DurationMins,
-			Status:         "INVITED",
-			CreatedAt:      time.Now(),
-			InviteURL:      inviteURL,
+		// Encrypt API key with AES-256-GCM before database persistence
+		storedKey := ""
+		if strings.TrimSpace(req.APIKey) != "" {
+			enc, err := EncryptAPIKey(strings.TrimSpace(req.APIKey))
+			if err == nil {
+				storedKey = enc
+			}
 		}
 
-		_, err := DB.Exec(`INSERT INTO interviews (id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, created_at, invite_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			session.ID, session.CandidateName, session.CandidateEmail, session.ScenarioID, session.ScenarioTitle, session.APIKey, session.TargetProvider, session.DurationMins, session.Status, session.CreatedAt, session.InviteURL)
+		session := &InterviewSession{
+			ID:                sessionID,
+			CandidateName:     req.CandidateName,
+			CandidateEmail:    req.CandidateEmail,
+			ScenarioID:        req.ScenarioID,
+			ScenarioTitle:     req.ScenarioTitle,
+			APIKey:            storedKey,
+			TargetProvider:    req.TargetProvider,
+			DurationMins:      req.DurationMins,
+			Status:            "INVITED",
+			RecruiterUsername: recruiter,
+			CreatedAt:         time.Now(),
+			InviteURL:         inviteURL,
+		}
+
+		_, err := DB.Exec(`INSERT INTO interviews (id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, cohort_id, recruiter_username, created_at, invite_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			session.ID, session.CandidateName, session.CandidateEmail, session.ScenarioID, session.ScenarioTitle, session.APIKey, session.TargetProvider, session.DurationMins, session.Status, "", session.RecruiterUsername, session.CreatedAt, session.InviteURL)
 		if err != nil {
 			http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		// Never return raw or cipher API key in JSON response
+		session.APIKey = MaskAPIKey(storedKey)
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(session)
 	}
 }
 
-// HandleListInterviews lists all interviews
+// HandleListInterviews lists interviews scoped to the authenticated recruiter, or all if Super Admin
 func HandleListInterviews(w http.ResponseWriter, r *http.Request) {
-	rows, err := DB.Query(`SELECT id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, created_at, invite_url FROM interviews ORDER BY created_at DESC`)
+	user, role := GetAuthenticatedUser(r)
+
+	var rows *sql.Rows
+	var err error
+	if role == "admin" {
+		rows, err = DB.Query(`SELECT id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, COALESCE(recruiter_username, 'admin'), created_at, invite_url FROM interviews ORDER BY created_at DESC`)
+	} else {
+		rows, err = DB.Query(`SELECT id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, COALESCE(recruiter_username, 'admin'), created_at, invite_url FROM interviews WHERE recruiter_username = ? ORDER BY created_at DESC`, user)
+	}
+
 	if err != nil {
 		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -206,13 +232,61 @@ func HandleListInterviews(w http.ResponseWriter, r *http.Request) {
 	list := make([]*InterviewSession, 0)
 	for rows.Next() {
 		var s InterviewSession
-		if err := rows.Scan(&s.ID, &s.CandidateName, &s.CandidateEmail, &s.ScenarioID, &s.ScenarioTitle, &s.APIKey, &s.TargetProvider, &s.DurationMins, &s.Status, &s.CreatedAt, &s.InviteURL); err == nil {
+		if err := rows.Scan(&s.ID, &s.CandidateName, &s.CandidateEmail, &s.ScenarioID, &s.ScenarioTitle, &s.APIKey, &s.TargetProvider, &s.DurationMins, &s.Status, &s.RecruiterUsername, &s.CreatedAt, &s.InviteURL); err == nil {
+			s.APIKey = MaskAPIKey(s.APIKey)
 			list = append(list, &s)
 		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(list)
+}
+
+// HandlePlatformOverview provides system-wide telemetry and lead metrics (Super Admin only)
+func HandlePlatformOverview(w http.ResponseWriter, r *http.Request) {
+	_, role := GetAuthenticatedUser(r)
+	if role != "admin" {
+		http.Error(w, "Unauthorized: Super Admin access required", http.StatusForbidden)
+		return
+	}
+
+	var totalInterviews, totalCohorts, totalRecruiters, totalPilotRequests int
+	_ = DB.QueryRow("SELECT COUNT(*) FROM interviews").Scan(&totalInterviews)
+	_ = DB.QueryRow("SELECT COUNT(*) FROM cohorts").Scan(&totalCohorts)
+	_ = DB.QueryRow("SELECT COUNT(*) FROM recruiters").Scan(&totalRecruiters)
+	_ = DB.QueryRow("SELECT COUNT(*) FROM pilot_requests").Scan(&totalPilotRequests)
+
+	// Fetch recent pilot requests
+	rows, err := DB.Query("SELECT id, full_name, work_email, company_name, team_size, notes, created_at FROM pilot_requests ORDER BY created_at DESC LIMIT 20")
+	var requests []map[string]any
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var id int
+			var fullName, workEmail, companyName, teamSize, notes string
+			var createdAt time.Time
+			if err := rows.Scan(&id, &fullName, &workEmail, &companyName, &teamSize, &notes, &createdAt); err == nil {
+				requests = append(requests, map[string]any{
+					"id":           id,
+					"full_name":    fullName,
+					"work_email":   workEmail,
+					"company_name": companyName,
+					"team_size":    teamSize,
+					"notes":        notes,
+					"created_at":   createdAt,
+				})
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"total_interviews":     totalInterviews,
+		"total_cohorts":        totalCohorts,
+		"total_recruiters":     totalRecruiters,
+		"total_pilot_requests": totalPilotRequests,
+		"pilot_requests":       requests,
+	})
 }
 
 // HandleVerifyCandidate checks candidate identity against the session before granting sandbox entry

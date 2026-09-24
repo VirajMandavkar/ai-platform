@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | VibeScout</title>
+    <title>Dashboard | TriageHubs</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -37,32 +38,43 @@
                 <div class="w-7 h-7 bg-brandBlue rounded-lg flex items-center justify-center text-white">
                     <i data-lucide="terminal" class="w-4 h-4"></i>
                 </div>
-                <span class="font-bold text-lg tracking-tight">VibeScout</span>
+                <span class="font-bold text-lg tracking-tight">TriageHubs</span>
             </a>
             <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">LIVE</span>
         </div>
 
-        <!-- Navigation (Simplified to single primary view) -->
+        <!-- Navigation -->
         <nav class="flex-grow p-4 space-y-1.5">
             <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3 mb-2">Workspace</div>
-            <a href="#" class="flex items-center gap-3 px-3 py-2.5 bg-blue-600/10 text-brandBlue rounded-lg text-xs font-bold border border-blue-500/20">
+            <button id="nav-btn-assessments" onclick="switchMainTab('assessments')" class="w-full flex items-center gap-3 px-3 py-2.5 bg-blue-600/10 text-brandBlue rounded-lg text-xs font-bold border border-blue-500/20 text-left transition">
                 <i data-lucide="layout-grid" class="w-4 h-4"></i> Assessments & Campaigns
-            </a>
+            </button>
+            <button id="nav-btn-platform" onclick="switchMainTab('platform')" class="hidden w-full flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg text-xs font-medium text-left transition">
+                <i data-lucide="shield-check" class="w-4 h-4 text-purple-400"></i> Platform Super Admin
+            </button>
             <a href="/" target="_blank" class="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg text-xs font-medium transition">
                 <i data-lucide="external-link" class="w-4 h-4"></i> Public Homepage
             </a>
+
+            <!-- Super Admin Maintenance -->
+            <div id="superadmin-tools" class="hidden pt-4 border-t border-slate-800 space-y-1">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-purple-400 px-3 mb-1">Super Admin Actions</div>
+                <button onclick="confirmCleanDatabase()" class="w-full flex items-center gap-2.5 px-3 py-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-lg text-xs font-medium text-left transition">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Wipe Database
+                </button>
+            </div>
         </nav>
 
         <!-- Recruiter Profile Footer -->
         <div class="p-4 border-t border-slate-800">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2.5 overflow-hidden">
-                    <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs shrink-0 text-white">
+                    <div id="recruiter-avatar" class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs shrink-0 text-white">
                         <i data-lucide="user" class="w-4 h-4"></i>
                     </div>
                     <div class="overflow-hidden">
-                        <div id="recruiter-name" class="text-xs font-bold truncate text-white">admin@acme.com</div>
-                        <div class="text-[10px] text-slate-400">Company Recruiter</div>
+                        <div id="recruiter-name" class="text-xs font-bold truncate text-white">admin@triagehubs.com</div>
+                        <div id="recruiter-role" class="text-[10px] text-slate-400">Company Recruiter</div>
                     </div>
                 </div>
                 <button id="logout-btn" title="Logout" class="text-slate-400 hover:text-red-400 transition p-1.5 rounded-lg hover:bg-slate-800">
@@ -77,13 +89,18 @@
         <!-- Top Sticky Header -->
         <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 sticky top-0 z-20">
             <div>
-                <h1 class="text-base font-bold text-slate-900">Assessment Hub</h1>
-                <p class="text-xs text-slate-500">Manage individual candidate sessions and high-concurrency mass campaigns</p>
+                <h1 id="page-header-title" class="text-base font-bold text-slate-900">Assessment Hub</h1>
+                <p id="page-header-subtitle" class="text-xs text-slate-500">Manage individual candidate sessions and high-concurrency mass campaigns</p>
             </div>
             
-            <button onclick="openCreateModal()" class="px-4 py-2 bg-brandDark text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition shadow-sm flex items-center gap-2">
-                <i data-lucide="plus" class="w-4 h-4 text-emerald-400"></i> Create Assessment
-            </button>
+            <div class="flex items-center gap-3">
+                <button onclick="openInviteModal()" class="px-3.5 py-2 border border-slate-300 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-lg hover:bg-slate-50 transition shadow-sm flex items-center gap-2">
+                    <i data-lucide="key" class="w-3.5 h-3.5 text-brandBlue"></i> Generate Company Invite
+                </button>
+                <button onclick="openCreateModal()" class="px-4 py-2 bg-brandDark text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition shadow-sm flex items-center gap-2">
+                    <i data-lucide="plus" class="w-4 h-4 text-emerald-400"></i> Create Assessment
+                </button>
+            </div>
         </header>
 
         <!-- Body Dashboard View -->
@@ -94,7 +111,9 @@
                 <button onclick="document.getElementById('toast-banner').classList.add('hidden')" class="text-slate-500 hover:text-slate-800 ml-4">✕</button>
             </div>
 
-            <!-- Focused Metrics -->
+            <!-- VIEW 1: Assessments & Campaigns -->
+            <div id="view-assessments" class="space-y-6">
+                <!-- Focused Metrics -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
                 <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
                     <div class="text-xs font-medium text-slate-500 mb-1">Active Campaigns</div>
@@ -468,6 +487,181 @@
             </div>
         </div>
     </div>
+    <!-- End VIEW 1: Assessments & Campaigns -->
+
+    <!-- VIEW 2: Platform Super Admin Overview -->
+    <div id="view-platform" class="hidden space-y-6">
+        <!-- Platform Metrics Header -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                <div class="text-xs font-medium text-slate-500 mb-1">Inbound Pilot Leads</div>
+                <div id="platform-stat-pilots" class="text-2xl font-black text-amber-500">0</div>
+                <div class="text-[11px] text-slate-400 mt-1">Enterprise requests awaiting review</div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                <div class="text-xs font-medium text-slate-500 mb-1">Registered Organizations</div>
+                <div id="platform-stat-recruiters" class="text-2xl font-black text-purple-600">0</div>
+                <div class="text-[11px] text-slate-400 mt-1">Active recruiter company tenants</div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                <div class="text-xs font-medium text-slate-500 mb-1">Total Candidate Sessions</div>
+                <div id="platform-stat-interviews" class="text-2xl font-black text-brandBlue">0</div>
+                <div class="text-[11px] text-slate-400 mt-1">Single proctored assessments</div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                <div class="text-xs font-medium text-slate-500 mb-1">Active Mass Cohorts</div>
+                <div id="platform-stat-cohorts" class="text-2xl font-black text-emerald-600">0</div>
+                <div class="text-[11px] text-slate-400 mt-1">High-concurrency test campaigns</div>
+            </div>
+        </div>
+
+        <!-- Inbound Pilot Requests Table -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        <h2 class="font-bold text-sm text-slate-900">Enterprise Pilot Leads & Requests</h2>
+                    </div>
+                    <p class="text-xs text-slate-500">Inbound corporate inquiries requesting private workspace access</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="loadPlatformOverview()" class="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 font-medium transition">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Leads
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50/80">
+                            <th class="px-6 py-3">Company / Org</th>
+                            <th class="px-6 py-3">Contact</th>
+                            <th class="px-6 py-3">Hiring Volume</th>
+                            <th class="px-6 py-3">Evaluation Scope</th>
+                            <th class="px-6 py-3">Received</th>
+                            <th class="px-6 py-3 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="platform-pilots-tbody">
+                        <tr>
+                            <td colspan="6" class="px-6 py-8 text-center text-slate-400 text-xs">
+                                Loading enterprise leads...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Platform Database & Infrastructure Controls -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <i data-lucide="database" class="w-4 h-4 text-purple-600"></i> Supabase Infrastructure & Database Hygiene
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-1 max-w-xl">
+                        Connected to Supabase PostgreSQL with AES-256-GCM encrypted API keys and real-time live replication. Clean database wipes all test candidate sessions while preserving super admin authority.
+                    </p>
+                </div>
+                <div class="flex items-center gap-3 shrink-0">
+                    <button onclick="openInviteModal()" class="px-4 py-2 border border-slate-300 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-lg hover:bg-slate-50 transition shadow-sm flex items-center gap-1.5">
+                        <i data-lucide="key" class="w-3.5 h-3.5 text-brandBlue"></i> Issue Invite Code
+                    </button>
+                    <button onclick="confirmCleanDatabase()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition shadow flex items-center gap-1.5">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Wipe Database
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- End VIEW 2: Platform Super Admin Overview -->
+
+    <!-- Sign Out Confirmation Modal -->
+    <div id="logout-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center space-y-4">
+            <div class="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+                <i data-lucide="log-out" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-slate-900">Sign Out Confirmation</h3>
+                <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                    Are you sure you want to end your recruiter session? You can return to the homepage or sign back in anytime.
+                </p>
+            </div>
+            <div class="flex items-center gap-3 pt-2">
+                <button type="button" onclick="closeLogoutModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition">
+                    Cancel
+                </button>
+                <button type="button" id="confirm-logout-btn" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-rose-200">
+                    Yes, Sign Out
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Company Invite Generator Modal (B2B Option A) -->
+    <div id="invite-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-brandBlue flex items-center justify-center">
+                        <i data-lucide="key" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">Generate Company Activation Invite</h3>
+                        <p class="text-[11px] text-slate-500">Option A Private B2B Onboarding Token</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeInviteModal()" class="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <!-- Form -->
+            <form id="generate-invite-form" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Company / Organization Name</label>
+                    <input type="text" id="inv-company-name" required placeholder="e.g. Stripe, Acme Corp" 
+                           class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brandBlue">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Authorized Administrator Email</label>
+                    <input type="email" id="inv-email" required placeholder="e.g. recruiting-lead@company.com" 
+                           class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brandBlue">
+                </div>
+                <button type="submit" id="btn-generate-invite" class="w-full py-2.5 bg-brandDark text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition flex items-center justify-center gap-1.5 shadow-sm">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i> Generate Activation Link
+                </button>
+            </form>
+
+            <!-- Result Box -->
+            <div id="invite-result-box" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-3.5 space-y-2">
+                <div class="flex items-center justify-between text-xs font-semibold text-blue-900">
+                    <span class="flex items-center gap-1"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> Activation Link Ready</span>
+                    <span id="invite-result-company" class="font-mono text-[10px] text-blue-700"></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="invite-result-link" readonly 
+                           class="flex-grow px-2.5 py-1.5 bg-white border border-blue-200 rounded text-xs font-mono text-slate-800 select-all">
+                    <button type="button" onclick="copyInviteResultLink()" class="px-3 py-1.5 bg-brandBlue hover:bg-blue-600 text-white rounded text-xs font-semibold flex items-center gap-1 shrink-0">
+                        <i data-lucide="copy" class="w-3 h-3"></i> Copy
+                    </button>
+                </div>
+            </div>
+
+            <!-- Existing Invites List -->
+            <div class="pt-3 border-t border-slate-100">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+                    <span>Recent Enterprise Invites</span>
+                    <button type="button" onclick="loadInvites()" class="hover:text-slate-600"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
+                </div>
+                <div id="invites-list-container" class="max-h-40 overflow-y-auto space-y-1.5 text-xs">
+                    <div class="text-slate-400 text-center py-2">Loading invites...</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         if (window.lucide && typeof lucide.createIcons === 'function') {
@@ -723,9 +917,20 @@
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-slate-50 transition";
 
-                    let badge = "bg-blue-50 text-brandBlue border-blue-200";
-                    if (item.status === 'IN_PROGRESS') badge = "bg-amber-50 text-amber-700 border-amber-200 animate-pulse";
-                    if (item.status === 'COMPLETED') badge = "bg-emerald-50 text-emerald-700 border-emerald-200 font-bold";
+                    let badge = "bg-slate-100 text-slate-600 border-slate-200";
+                    let statusLabel = item.status || "INVITED";
+                    if (item.status === 'IN_PROGRESS') {
+                        badge = "bg-amber-50 text-amber-700 border-amber-300 font-bold animate-pulse";
+                        statusLabel = "🟢 IN SANDBOX";
+                    } else if (item.status === 'COMPLETED') {
+                        badge = "bg-emerald-50 text-emerald-700 border-emerald-300 font-bold";
+                        statusLabel = "✓ VERIFIED";
+                    } else if (item.status === 'TERMINATED_VIOLATION') {
+                        badge = "bg-rose-50 text-rose-700 border-rose-300 font-bold";
+                        statusLabel = "✕ VIOLATION EXIT";
+                    }
+
+                    const timeStr = formatRelativeTime(item.created_at);
 
                     tr.innerHTML = `
                         <td class="px-6 py-4">
@@ -736,6 +941,7 @@
                         <td class="px-6 py-4">
                             <div class="font-bold text-slate-900">${item.candidate_name || 'Anonymous Candidate'}</div>
                             <div class="text-[11px] text-slate-400 font-mono">${item.candidate_email}</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">Created ${timeStr}</div>
                         </td>
                         <td class="px-6 py-4 font-mono text-slate-500">
                             1 Candidate
@@ -745,7 +951,7 @@
                         </td>
                         <td class="px-6 py-4">
                             <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${badge}">
-                                ${item.status}
+                                ${statusLabel}
                             </span>
                         </td>
                         <td class="px-6 py-4 text-right space-x-1.5">
@@ -950,14 +1156,327 @@
             if (window.lucide) lucide.createIcons();
         }
 
-        document.getElementById('logout-btn').addEventListener('click', async () => {
-            await fetch('/api/admin/logout', { method: 'POST' });
-            localStorage.removeItem('vibescout_token');
-            window.location.href = '/login.html?mode=signin';
+        function formatRelativeTime(dateStr) {
+            if (!dateStr) return 'Recently';
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr;
+            const now = new Date();
+            const diffSec = Math.floor((now - date) / 1000);
+            if (diffSec < 60) return 'Just now';
+            if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+            if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Logout Modal Controls
+        function openLogoutModal() {
+            const modal = document.getElementById('logout-modal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeLogoutModal() {
+            const modal = document.getElementById('logout-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        document.getElementById('logout-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            openLogoutModal();
         });
 
-        // Initialize
+        document.getElementById('confirm-logout-btn').addEventListener('click', async () => {
+            try {
+                await fetch('/api/admin/logout', { method: 'POST' });
+            } catch (err) {}
+            localStorage.removeItem('triagehubs_token');
+            localStorage.removeItem('triagehubs_user');
+            localStorage.removeItem('vibescout_token');
+            localStorage.removeItem('vibescout_user');
+            // Redirect to homepage (not login page) as requested!
+            window.location.href = '/';
+        });
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+            });
+        }
+
+        let currentUserRole = 'recruiter';
+
+        // Verify authenticated session and display recruiter username/role
+        async function initAuth() {
+            try {
+                const res = await fetch('/api/admin/me');
+                const data = await res.json();
+                if (!data.authenticated || !data.username) {
+                    window.location.href = '/login.html?mode=signin';
+                    return;
+                }
+                const nameEl = document.getElementById('recruiter-name');
+                if (nameEl) nameEl.textContent = data.username;
+
+                currentUserRole = data.role || 'recruiter';
+                const roleEl = document.getElementById('recruiter-role');
+                const avatarEl = document.getElementById('recruiter-avatar');
+
+                if (currentUserRole === 'admin') {
+                    if (roleEl) {
+                        roleEl.textContent = 'Super Administrator';
+                        roleEl.className = 'text-[10px] text-purple-400 font-bold';
+                    }
+                    if (avatarEl) {
+                        avatarEl.className = 'w-8 h-8 rounded-full bg-purple-700 flex items-center justify-center font-bold text-xs shrink-0 text-white';
+                    }
+                    document.getElementById('nav-btn-platform')?.classList.remove('hidden');
+                    document.getElementById('superadmin-tools')?.classList.remove('hidden');
+                    loadPlatformOverview();
+                } else {
+                    if (roleEl) roleEl.textContent = 'Company Recruiter';
+                }
+            } catch (err) {
+                console.warn('Session verification warning:', err);
+            }
+        }
+
+        function switchMainTab(tab) {
+            const btnAssessments = document.getElementById('nav-btn-assessments');
+            const btnPlatform = document.getElementById('nav-btn-platform');
+            const viewAssessments = document.getElementById('view-assessments');
+            const viewPlatform = document.getElementById('view-platform');
+            const headerTitle = document.getElementById('page-header-title');
+            const headerSubtitle = document.getElementById('page-header-subtitle');
+
+            if (tab === 'platform') {
+                viewAssessments?.classList.add('hidden');
+                viewPlatform?.classList.remove('hidden');
+                btnAssessments.className = "w-full flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg text-xs font-medium text-left transition";
+                btnPlatform.className = "w-full flex items-center gap-3 px-3 py-2.5 bg-purple-600/10 text-purple-400 rounded-lg text-xs font-bold border border-purple-500/20 text-left transition";
+                if (headerTitle) headerTitle.textContent = "Platform Super Admin Overview";
+                if (headerSubtitle) headerSubtitle.textContent = "Real-time system telemetry, enterprise pilot leads, and access provisioning";
+                loadPlatformOverview();
+            } else {
+                viewPlatform?.classList.add('hidden');
+                viewAssessments?.classList.remove('hidden');
+                btnAssessments.className = "w-full flex items-center gap-3 px-3 py-2.5 bg-blue-600/10 text-brandBlue rounded-lg text-xs font-bold border border-blue-500/20 text-left transition";
+                btnPlatform.className = "w-full flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg text-xs font-medium text-left transition";
+                if (headerTitle) headerTitle.textContent = "Assessment Hub";
+                if (headerSubtitle) headerSubtitle.textContent = "Manage individual candidate sessions and high-concurrency mass campaigns";
+                loadAll();
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        async function loadPlatformOverview() {
+            try {
+                const res = await fetch('/api/admin/platform/overview');
+                if (!res.ok) return;
+                const data = await res.json();
+                
+                const pilotsEl = document.getElementById('platform-stat-pilots');
+                const recsEl = document.getElementById('platform-stat-recruiters');
+                const intsEl = document.getElementById('platform-stat-interviews');
+                const cohEl = document.getElementById('platform-stat-cohorts');
+
+                if (pilotsEl) pilotsEl.textContent = data.total_pilot_requests || 0;
+                if (recsEl) recsEl.textContent = data.total_recruiters || 0;
+                if (intsEl) intsEl.textContent = data.total_interviews || 0;
+                if (cohEl) cohEl.textContent = data.total_cohorts || 0;
+
+                const pilotTbody = document.getElementById('platform-pilots-tbody');
+                if (pilotTbody) {
+                    if (!data.pilot_requests || data.pilot_requests.length === 0) {
+                        pilotTbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-400 text-xs">No pilot requests submitted yet.</td></tr>`;
+                    } else {
+                        pilotTbody.innerHTML = data.pilot_requests.map(p => `
+                            <tr class="border-b border-slate-100 hover:bg-slate-50/60 transition text-xs">
+                                <td class="px-6 py-4 font-bold text-slate-900">${escapeHtml(p.company_name)}</td>
+                                <td class="px-6 py-4">
+                                    <div class="font-semibold text-slate-800">${escapeHtml(p.full_name)}</div>
+                                    <div class="text-[11px] text-slate-500 font-mono">${escapeHtml(p.work_email)}</div>
+                                </td>
+                                <td class="px-6 py-4 font-medium text-slate-700">${escapeHtml(p.team_size || 'Flexible')}</td>
+                                <td class="px-6 py-4 text-slate-500 max-w-xs truncate" title="${escapeHtml(p.notes)}">${escapeHtml(p.notes || '—')}</td>
+                                <td class="px-6 py-4 text-slate-400">${new Date(p.created_at).toLocaleDateString()}</td>
+                                <td class="px-6 py-4 text-right">
+                                    <button onclick="prefillAndOpenInvite('${escapeHtml(p.company_name)}', '${escapeHtml(p.work_email)}')" 
+                                            class="px-2.5 py-1.5 bg-brandDark hover:bg-slate-800 text-white rounded-md text-[11px] font-semibold transition flex items-center gap-1 shadow-sm inline-flex">
+                                        <i data-lucide="key" class="w-3 h-3 text-amber-400"></i> Issue Invite
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('');
+                        if (window.lucide) lucide.createIcons();
+                    }
+                }
+            } catch (err) {
+                console.warn('Failed to load platform overview:', err);
+            }
+        }
+
+        function prefillAndOpenInvite(company, email) {
+            openInviteModal();
+            const compInput = document.getElementById('invite-company');
+            const emailInput = document.getElementById('invite-email');
+            if (compInput) compInput.value = company;
+            if (emailInput) emailInput.value = email;
+        }
+
+        async function confirmCleanDatabase() {
+            if (!confirm('⚠️ DANGER: This will erase all candidate sessions, cohorts, telemetry, and recruiter invites from Supabase PostgreSQL, preserving only the Super Admin account.\\n\\nAre you sure you want to proceed?')) {
+                return;
+            }
+            const confirmWord = prompt('Type "WIPE" to confirm complete database reset:');
+            if (confirmWord !== 'WIPE') {
+                alert('Database reset cancelled.');
+                return;
+            }
+            try {
+                const res = await fetch('/api/admin/system/clean', { method: 'POST' });
+                if (res.ok) {
+                    showToast('Database wiped clean. Only Super Admin preserved.');
+                    loadAll();
+                    loadPlatformOverview();
+                } else {
+                    const txt = await res.text();
+                    alert('Database clean error: ' + txt);
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        }
+
+        // Supabase Realtime Live Synchronization (Zero-Lag Dashboard Updates)
+        function initRealtime() {
+            try {
+                if (window.supabase && typeof window.supabase.createClient === 'function') {
+                    const supabaseClient = window.supabase.createClient(
+                        'https://evfmqxvsnsjoukimahhl.supabase.co',
+                        'sb_publishable_vHF7geM-1E434L8hV5b7sg_rJNl1stZ'
+                    );
+
+                    supabaseClient
+                        .channel('dashboard-live-channel')
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'interviews' }, (payload) => {
+                            console.log('⚡ [Supabase Realtime] Interview Change:', payload);
+                            loadAll();
+                            if (payload.new && payload.new.candidate_name) {
+                                showToast(`⚡ Live Update: ${payload.new.candidate_name} status is now ${payload.new.status}`);
+                            }
+                        })
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'telemetry_sessions' }, (payload) => {
+                            console.log('⚡ [Supabase Realtime] Telemetry Change:', payload);
+                            loadAll();
+                        })
+                        .subscribe();
+                }
+            } catch (err) {
+                console.warn('Supabase Realtime error:', err);
+            }
+        }
+
+        // Company Invite Modal Controls (B2B Option A)
+        function openInviteModal() {
+            document.getElementById('invite-result-box').classList.add('hidden');
+            document.getElementById('generate-invite-form').reset();
+            document.getElementById('invite-modal').classList.remove('hidden');
+            loadInvites();
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function closeInviteModal() {
+            document.getElementById('invite-modal').classList.add('hidden');
+        }
+
+        async function loadInvites() {
+            const container = document.getElementById('invites-list-container');
+            if (!container) return;
+            try {
+                const res = await fetch('/api/admin/invites');
+                if (!res.ok) throw new Error('Failed to load invites');
+                const list = await res.json();
+                if (!list || list.length === 0) {
+                    container.innerHTML = '<div class="text-slate-400 text-center py-2 text-xs">No invites generated yet.</div>';
+                    return;
+                }
+                container.innerHTML = list.map(inv => {
+                    const statusBadge = inv.used 
+                        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500">Redeemed by ${inv.used_by || 'User'}</span>`
+                        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">Active</span>`;
+                    const fullLink = `${window.location.origin}/login.html?invite=${inv.code}`;
+                    return `
+                        <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200">
+                            <div>
+                                <div class="font-bold text-slate-800">${inv.company_name}</div>
+                                <div class="text-[10px] text-slate-400 font-mono">${inv.email}</div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${statusBadge}
+                                <button type="button" onclick="navigator.clipboard.writeText('${fullLink}'); showToast('Copied invite link');" class="p-1 hover:text-brandBlue text-slate-400" title="Copy Invite Link">
+                                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                if (window.lucide) lucide.createIcons();
+            } catch(e) {
+                container.innerHTML = '<div class="text-slate-400 text-center py-2 text-xs">Could not load invites: ' + e.message + '</div>';
+            }
+        }
+
+        const genInviteForm = document.getElementById('generate-invite-form');
+        if (genInviteForm) {
+            genInviteForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('btn-generate-invite');
+                btn.disabled = true;
+
+                const payload = {
+                    company_name: document.getElementById('inv-company-name').value.trim(),
+                    email: document.getElementById('inv-email').value.trim()
+                };
+
+                try {
+                    const res = await fetch('/api/admin/invites/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const fullLink = `${window.location.origin}/login.html?invite=${data.code}`;
+                        document.getElementById('invite-result-company').textContent = data.company_name;
+                        document.getElementById('invite-result-link').value = fullLink;
+                        document.getElementById('invite-result-box').classList.remove('hidden');
+                        showToast(`Invite created for ${data.company_name}`);
+                        loadInvites();
+                    } else {
+                        const txt = await res.text();
+                        showToast(txt || 'Failed to generate invite', true);
+                    }
+                } catch(err) {
+                    showToast('Network error: ' + err.message, true);
+                } finally {
+                    btn.disabled = false;
+                    if (window.lucide) lucide.createIcons();
+                }
+            });
+        }
+
+        function copyInviteResultLink() {
+            const input = document.getElementById('invite-result-link');
+            if (input) {
+                navigator.clipboard.writeText(input.value);
+                showToast('Copied activation invite link to clipboard');
+            }
+        }
+
+        // Initialize Dashboard
+        initAuth();
         loadAll();
+        initRealtime();
     </script>
 </body>
 </html>

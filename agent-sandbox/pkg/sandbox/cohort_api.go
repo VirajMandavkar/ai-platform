@@ -2,6 +2,7 @@ package sandbox
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -26,6 +27,7 @@ type CohortSession struct {
 	SafeCapacitySeats    int               `json:"safe_capacity_seats"`
 	AuthorizedEmails     []string          `json:"authorized_emails"`
 	RegisteredCandidates map[string]string `json:"registered_candidates"` // email -> sessionId
+	RecruiterUsername    string            `json:"recruiter_username,omitempty"`
 	CreatedAt            time.Time         `json:"created_at"`
 	CohortURL            string            `json:"cohort_url"`
 }
@@ -80,14 +82,24 @@ func HandleCreateCohort(baseURL string) http.HandlerFunc {
 			}
 		}
 
+		recruiter := GetAuthenticatedRecruiter(r)
 		cohortID := generateSecureID("cohort")
 		cohortURL := fmt.Sprintf("%s/?cohort=%s", baseURL, cohortID)
 
 		authEmailsJSON, _ := json.Marshal(cleanedEmails)
 		regCandJSON, _ := json.Marshal(make(map[string]string))
 
-		_, err := DB.Exec(`INSERT INTO cohorts (id, title, scenario_id, api_key, duration_mins, safe_capacity_seats, authorized_emails, registered_candidates, created_at, cohort_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			cohortID, req.Title, req.ScenarioID, req.APIKey, req.DurationMins, req.SafeCapacitySeats, string(authEmailsJSON), string(regCandJSON), time.Now(), cohortURL)
+		// Encrypt API key with AES-256-GCM before database persistence
+		storedKey := ""
+		if strings.TrimSpace(req.APIKey) != "" {
+			enc, err := EncryptAPIKey(strings.TrimSpace(req.APIKey))
+			if err == nil {
+				storedKey = enc
+			}
+		}
+
+		_, err := DB.Exec(`INSERT INTO cohorts (id, title, scenario_id, api_key, duration_mins, safe_capacity_seats, authorized_emails, registered_candidates, recruiter_username, created_at, cohort_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			cohortID, req.Title, req.ScenarioID, storedKey, req.DurationMins, req.SafeCapacitySeats, string(authEmailsJSON), string(regCandJSON), recruiter, time.Now(), cohortURL)
 		if err != nil {
 			http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -97,11 +109,12 @@ func HandleCreateCohort(baseURL string) http.HandlerFunc {
 			ID:                   cohortID,
 			Title:                req.Title,
 			ScenarioID:           req.ScenarioID,
-			APIKey:               req.APIKey,
+			APIKey:               MaskAPIKey(storedKey),
 			DurationMins:         req.DurationMins,
 			SafeCapacitySeats:    req.SafeCapacitySeats,
 			AuthorizedEmails:     cleanedEmails,
 			RegisteredCandidates: make(map[string]string),
+			RecruiterUsername:    recruiter,
 			CreatedAt:            time.Now(),
 			CohortURL:            cohortURL,
 		}
@@ -111,9 +124,18 @@ func HandleCreateCohort(baseURL string) http.HandlerFunc {
 	}
 }
 
-// HandleListCohorts lists all active cohorts
+// HandleListCohorts lists all active cohorts scoped to the authenticated recruiter, or all if Super Admin
 func HandleListCohorts(w http.ResponseWriter, r *http.Request) {
-	rows, err := DB.Query(`SELECT id, title, scenario_id, api_key, duration_mins, safe_capacity_seats, authorized_emails, registered_candidates, created_at, cohort_url FROM cohorts`)
+	user, role := GetAuthenticatedUser(r)
+
+	var rows *sql.Rows
+	var err error
+	if role == "admin" {
+		rows, err = DB.Query(`SELECT id, title, scenario_id, api_key, duration_mins, safe_capacity_seats, authorized_emails, registered_candidates, COALESCE(recruiter_username, 'admin'), created_at, cohort_url FROM cohorts ORDER BY created_at DESC`)
+	} else {
+		rows, err = DB.Query(`SELECT id, title, scenario_id, api_key, duration_mins, safe_capacity_seats, authorized_emails, registered_candidates, COALESCE(recruiter_username, 'admin'), created_at, cohort_url FROM cohorts WHERE recruiter_username = ? ORDER BY created_at DESC`, user)
+	}
+
 	if err != nil {
 		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -124,9 +146,10 @@ func HandleListCohorts(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var c CohortSession
 		var authEmailsStr, regCandStr string
-		if err := rows.Scan(&c.ID, &c.Title, &c.ScenarioID, &c.APIKey, &c.DurationMins, &c.SafeCapacitySeats, &authEmailsStr, &regCandStr, &c.CreatedAt, &c.CohortURL); err == nil {
+		if err := rows.Scan(&c.ID, &c.Title, &c.ScenarioID, &c.APIKey, &c.DurationMins, &c.SafeCapacitySeats, &authEmailsStr, &regCandStr, &c.RecruiterUsername, &c.CreatedAt, &c.CohortURL); err == nil {
 			json.Unmarshal([]byte(authEmailsStr), &c.AuthorizedEmails)
 			json.Unmarshal([]byte(regCandStr), &c.RegisteredCandidates)
+			c.APIKey = MaskAPIKey(c.APIKey)
 			list = append(list, &c)
 		}
 	}

@@ -7,12 +7,14 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var jwtKey = []byte("super_secret_key_change_in_prod")
 
 type Claims struct {
 	Username string `json:"username"`
+	Role     string `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -30,10 +32,16 @@ func (a *AuthRequest) GetIdentifier() string {
 }
 
 // issueToken sets the cookie AND returns the signed token string
-func issueToken(w http.ResponseWriter, username string) (string, error) {
+func issueToken(w http.ResponseWriter, username string, optionalRole ...string) (string, error) {
+	role := "recruiter"
+	if len(optionalRole) > 0 && optionalRole[0] != "" {
+		role = optionalRole[0]
+	}
+
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &Claims{
 		Username: username,
+		Role:     role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
@@ -45,12 +53,20 @@ func issueToken(w http.ResponseWriter, username string) (string, error) {
 		return "", err
 	}
 
-	// Also set cookie for standard web navigation
+	// Set cookies for browser navigation
+	http.SetCookie(w, &http.Cookie{
+		Name:     "triagehubs_token",
+		Value:    tokenString,
+		Expires:  expirationTime,
+		HttpOnly: false,
+		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
+	})
 	http.SetCookie(w, &http.Cookie{
 		Name:     "admin_token",
 		Value:    tokenString,
 		Expires:  expirationTime,
-		HttpOnly: false, // allow fallback inspection if needed
+		HttpOnly: false,
 		Path:     "/",
 		SameSite: http.SameSiteLaxMode,
 	})
@@ -72,6 +88,9 @@ func extractToken(r *http.Request) string {
 		return qToken
 	}
 
+	if cookie, err := r.Cookie("triagehubs_token"); err == nil && cookie.Value != "" {
+		return cookie.Value
+	}
 	if cookie, err := r.Cookie("admin_token"); err == nil && cookie.Value != "" {
 		return cookie.Value
 	}
@@ -79,7 +98,32 @@ func extractToken(r *http.Request) string {
 	return ""
 }
 
-// HandleAdminLogin authenticates existing recruiters
+// GetAuthenticatedUser extracts verified recruiter username and role
+func GetAuthenticatedUser(r *http.Request) (string, string) {
+	tokenStr := extractToken(r)
+	if tokenStr != "" {
+		claims := &Claims{}
+		tkn, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+			return jwtKey, nil
+		})
+		if err == nil && tkn.Valid && claims.Username != "" {
+			role := claims.Role
+			if role == "" {
+				role = "recruiter"
+			}
+			return claims.Username, role
+		}
+	}
+	return "", ""
+}
+
+// GetAuthenticatedRecruiter extracts the verified recruiter username
+func GetAuthenticatedRecruiter(r *http.Request) string {
+	u, _ := GetAuthenticatedUser(r)
+	return u
+}
+
+// HandleAdminLogin authenticates existing recruiters using bcrypt
 func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -98,24 +142,29 @@ func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var hash string
-	err := DB.QueryRow("SELECT password_hash FROM recruiters WHERE username = ?", identifier).Scan(&hash)
-	
-	// Default demo recruiter fallback: admin / admin or admin@acme.com / admin
-	if err != nil && (identifier == "admin@acme.com" || identifier == "admin") {
-		err = DB.QueryRow("SELECT password_hash FROM recruiters WHERE username = 'admin'").Scan(&hash)
-	}
-
-	// Auto-create account if logging in for the first time during demo
+	var hash, role string
+	err := DB.QueryRow("SELECT password_hash, COALESCE(role, 'recruiter') FROM recruiters WHERE username = ?", identifier).Scan(&hash, &role)
 	if err != nil {
-		_, _ = DB.Exec("INSERT INTO recruiters (username, password_hash) VALUES (?, ?)", identifier, req.Password)
-		hash = req.Password
-	} else if hash != req.Password {
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		http.Error(w, "Account not found. Please register or verify invite.", http.StatusUnauthorized)
 		return
 	}
 
-	tokenString, err := issueToken(w, identifier)
+	// Compare bcrypt hash
+	bcryptErr := bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.Password))
+	if bcryptErr != nil {
+		// Legacy fallback if password was saved in plaintext
+		if hash == req.Password {
+			// Upgrade plaintext password to bcrypt hash in DB
+			if newHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost); err == nil {
+				_, _ = DB.Exec("UPDATE recruiters SET password_hash = ? WHERE username = ?", string(newHash), identifier)
+			}
+		} else {
+			http.Error(w, "Invalid password", http.StatusUnauthorized)
+			return
+		}
+	}
+
+	tokenString, err := issueToken(w, identifier, role)
 	if err != nil {
 		http.Error(w, "Internal error issuing session", http.StatusInternalServerError)
 		return
@@ -127,10 +176,11 @@ func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		"message": "Logged in successfully",
 		"token":   tokenString,
 		"user":    identifier,
+		"role":    role,
 	})
 }
 
-// HandleAdminRegister registers a new recruiter account
+// HandleAdminRegister registers a new recruiter account with bcrypt hashing
 func HandleAdminRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -144,19 +194,27 @@ func HandleAdminRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	identifier := req.GetIdentifier()
-	if identifier == "" || len(req.Password) < 2 {
-		http.Error(w, "Valid email and password required", http.StatusBadRequest)
+	if identifier == "" || len(req.Password) < 3 {
+		http.Error(w, "Valid email/username and password (min 3 chars) required", http.StatusBadRequest)
 		return
 	}
 
-	// Insert into recruiters (or update password if exists)
-	_, err := DB.Exec("INSERT INTO recruiters (username, password_hash) VALUES (?, ?) ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash", identifier, req.Password)
+	// Hash password with bcrypt
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Failed to secure password: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	passwordHash := string(hashedBytes)
+
+	// Insert into recruiters (or update password hash if exists)
+	_, err = DB.Exec("INSERT INTO recruiters (username, password_hash, role) VALUES (?, ?, 'recruiter') ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash", identifier, passwordHash)
 	if err != nil {
 		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	tokenString, err := issueToken(w, identifier)
+	tokenString, err := issueToken(w, identifier, "recruiter")
 	if err != nil {
 		http.Error(w, "Internal error issuing session", http.StatusInternalServerError)
 		return
@@ -168,38 +226,64 @@ func HandleAdminRegister(w http.ResponseWriter, r *http.Request) {
 		"message": "Registered successfully",
 		"token":   tokenString,
 		"user":    identifier,
+		"role":    "recruiter",
 	})
 }
 
-// HandleAdminMe returns the currently authenticated recruiter
+// HandleAdminMe returns the currently authenticated recruiter or false if unauthenticated
 func HandleAdminMe(w http.ResponseWriter, r *http.Request) {
 	tokenStr := extractToken(r)
-	username := "admin@acme.com"
-	if tokenStr != "" {
-		claims := &Claims{}
-		tkn, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-			return jwtKey, nil
+	if tokenStr == "" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"authenticated": false,
+			"username":      "",
+			"role":          "",
 		})
-		if err == nil && tkn.Valid {
-			username = claims.Username
-		}
+		return
+	}
+
+	claims := &Claims{}
+	tkn, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	if err != nil || !tkn.Valid || claims.Username == "" {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"authenticated": false,
+			"username":      "",
+			"role":          "",
+		})
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"authenticated": true,
-		"username":      username,
+		"username":      claims.Username,
+		"role":          claims.Role,
 	})
 }
 
-// HandleAdminLogout logs out the recruiter
+// HandleAdminLogout logs out the recruiter and clears session cookies
 func HandleAdminLogout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "triagehubs_token",
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		HttpOnly: false,
+		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
+	})
 	http.SetCookie(w, &http.Cookie{
 		Name:     "admin_token",
 		Value:    "",
 		Expires:  time.Unix(0, 0),
-		HttpOnly: true,
+		MaxAge:   -1,
+		HttpOnly: false,
 		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
@@ -208,16 +292,33 @@ func HandleAdminLogout(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// HandleSystemClean wipes test data from Supabase PostgreSQL (Super Admin only)
+func HandleSystemClean(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	_, role := GetAuthenticatedUser(r)
+	if role != "admin" {
+		http.Error(w, "Forbidden: Only super admin can reset database", http.StatusForbidden)
+		return
+	}
+	if err := CleanDatabase(); err != nil {
+		http.Error(w, "Database clean error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"status":  "ok",
+		"message": "Supabase database wiped clean. Super admin preserved.",
+	})
+}
+
 // AdminAuthMiddleware validates JWT for protected endpoints
 func AdminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenStr := extractToken(r)
 		if tokenStr == "" {
-			// Allow local development and internal API calls seamlessly
-			if strings.HasPrefix(r.Host, "localhost:") || strings.HasPrefix(r.Host, "127.0.0.1:") || r.Host == "localhost" {
-				next(w, r)
-				return
-			}
 			http.Error(w, "Unauthorized: Please log in", http.StatusUnauthorized)
 			return
 		}
@@ -226,11 +327,7 @@ func AdminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		tkn, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 			return jwtKey, nil
 		})
-		if err != nil || !tkn.Valid {
-			if strings.HasPrefix(r.Host, "localhost:") || strings.HasPrefix(r.Host, "127.0.0.1:") || r.Host == "localhost" {
-				next(w, r)
-				return
-			}
+		if err != nil || !tkn.Valid || claims.Username == "" {
 			http.Error(w, "Unauthorized: Session invalid", http.StatusUnauthorized)
 			return
 		}

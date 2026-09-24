@@ -1,9 +1,9 @@
-# VibeScout: AI-Native Assessment Platform
+# TriageHubs: AI-Native Assessment Platform
 
-Welcome to **VibeScout**, the world's first engineering assessment platform built specifically for the age of AI. We don't test syntax memorization; we test architectural intuition, AI synergy, and prompt churn.
+Welcome to **TriageHubs**, the world's first engineering assessment platform built specifically for the age of AI. We don't test syntax memorization; we test architectural intuition, AI synergy, and prompt churn.
 
-## 🌟 The VibeScout Advantage
-Traditional interviews are obsolete. VibeScout evaluates candidates by dropping them into a fully-functional, locked-down workspace equipped *only* with an AI agent (Claude Code). 
+## 🌟 The TriageHubs Advantage
+Traditional interviews are obsolete. TriageHubs evaluates candidates by dropping them into a fully-functional, locked-down workspace equipped *only* with an AI agent (Claude Code). 
 
 We generate proprietary telemetry to measure:
 - **Prompt Churn:** How effectively does the candidate steer the AI?
@@ -12,7 +12,7 @@ We generate proprietary telemetry to measure:
 
 ## 🏗️ Architecture
 
-VibeScout consists of three decoupled pillars:
+TriageHubs consists of three decoupled pillars:
 
 1. **The Frontend (UI/UX) - `agent-sandbox/web`**
    - **`index.html`**: A high-converting, tech-forward marketing landing page.
@@ -39,8 +39,8 @@ VibeScout consists of three decoupled pillars:
    *(This builds the Docker image and boots the Proxy Gateway and Sandbox servers).*
 
 2. **Access the Application:**
-   - Open your browser to [http://localhost:8081](http://localhost:8081).
-   - Click "Try Candidate Sandbox" to experience the live Web Terminal.
+   - Log into the Recruiter Dashboard at [http://localhost:8081/login.html](http://localhost:8081/login.html).
+   - Generate an assessment link and open `/sandbox.html?token=<token>` to test the candidate environment.
 
 ## 💰 Unit Economics & Tiers
 
