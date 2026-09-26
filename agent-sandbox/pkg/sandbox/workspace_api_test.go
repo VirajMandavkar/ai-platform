@@ -89,4 +89,3 @@ func TestWorkspaceAPI_TreeAndFile(t *testing.T) {
 		t.Errorf("unexpected file content: %v", fileResp["content"])
 	}
 }
-

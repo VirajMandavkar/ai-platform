@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -28,13 +29,15 @@ func HandleGetScenario(scenarioDir string) http.HandlerFunc {
 		manifestPath := filepath.Join(scenarioDir, "manifest.json")
 		manifestBytes, err := os.ReadFile(manifestPath)
 		if err != nil {
-			http.Error(w, "Failed to load manifest: "+err.Error(), http.StatusInternalServerError)
+			log.Printf("Error: %v", err)
+			http.Error(w, "Failed to load manifest", http.StatusInternalServerError)
 			return
 		}
 
 		var manifest map[string]any
 		if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-			http.Error(w, "Invalid manifest JSON: "+err.Error(), http.StatusInternalServerError)
+			log.Printf("Error: %v", err)
+			http.Error(w, "Invalid manifest JSON", http.StatusInternalServerError)
 			return
 		}
 
@@ -73,7 +76,8 @@ func HandleGetWorkspaceTree(workspaceDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tree, err := buildTree(workspaceDir, "")
 		if err != nil {
-			http.Error(w, "Failed to build tree: "+err.Error(), http.StatusInternalServerError)
+			log.Printf("Error: %v", err)
+			http.Error(w, "Failed to build tree", http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -128,7 +132,8 @@ func HandleGetWorkspaceFile(workspaceDir string) http.HandlerFunc {
 				Content string `json:"content"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-				http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+				log.Printf("Error: %v", err)
+				http.Error(w, "Invalid JSON", http.StatusBadRequest)
 				return
 			}
 			if payload.Path == "" {
@@ -143,7 +148,8 @@ func HandleGetWorkspaceFile(workspaceDir string) http.HandlerFunc {
 				return
 			}
 			if err := os.WriteFile(fullPath, []byte(payload.Content), 0644); err != nil {
-				http.Error(w, "Failed to save file: "+err.Error(), http.StatusInternalServerError)
+				log.Printf("Error: %v", err)
+				http.Error(w, "Failed to save file", http.StatusInternalServerError)
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -169,7 +175,8 @@ func HandleGetWorkspaceFile(workspaceDir string) http.HandlerFunc {
 		}
 		content, err := os.ReadFile(fullPath)
 		if err != nil {
-			http.Error(w, "File not found: "+err.Error(), http.StatusNotFound)
+			log.Printf("Error: %v", err)
+			http.Error(w, "File not found", http.StatusNotFound)
 			return
 		}
 
@@ -189,7 +196,7 @@ func HandleRunVerification() http.HandlerFunc {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		
+
 		sessionID := r.URL.Query().Get("sessionId")
 		if sessionID == "" {
 			sessionID = "default-session"

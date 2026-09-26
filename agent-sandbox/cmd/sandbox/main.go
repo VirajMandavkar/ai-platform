@@ -175,6 +175,9 @@ func main() {
 	log.Println("[sandbox] starting server on :8081")
 	logHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[HTTP] %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
+			r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		}
 		http.DefaultServeMux.ServeHTTP(w, r)
 	})
 	log.Fatal(http.ListenAndServe(":8081", logHandler))

@@ -102,7 +102,8 @@ func HandleActivateInvite(w http.ResponseWriter, r *http.Request) {
 
 	var req InviteActivateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid payload: "+err.Error(), http.StatusBadRequest)
+		log.Printf("Error: %v", err)
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
 		return
 	}
 
@@ -129,7 +130,8 @@ func HandleActivateInvite(w http.ResponseWriter, r *http.Request) {
 	// 1. Hash password with bcrypt
 	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		http.Error(w, "Failed to hash password: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("Error: %v", err)
+		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
 		return
 	}
 	passwordHash := string(hashedBytes)
@@ -137,7 +139,8 @@ func HandleActivateInvite(w http.ResponseWriter, r *http.Request) {
 	// 2. Insert or update recruiter account
 	_, err = DB.Exec("INSERT INTO recruiters (username, password_hash) VALUES (?, ?) ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash", email, passwordHash)
 	if err != nil {
-		http.Error(w, "Failed to create recruiter workspace: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("Error: %v", err)
+		http.Error(w, "Failed to create recruiter workspace", http.StatusInternalServerError)
 		return
 	}
 
@@ -174,7 +177,8 @@ func HandlePilotRequest(w http.ResponseWriter, r *http.Request) {
 
 	var req PilotLeadRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid payload: "+err.Error(), http.StatusBadRequest)
+		log.Printf("Error: %v", err)
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
 		return
 	}
 
@@ -238,7 +242,8 @@ func HandleGenerateInvite(w http.ResponseWriter, r *http.Request) {
 		code, req.CompanyName, req.Email, false, now,
 	)
 	if err != nil {
-		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("Error: %v", err)
+		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 
@@ -257,7 +262,8 @@ func HandleGenerateInvite(w http.ResponseWriter, r *http.Request) {
 func HandleListInvites(w http.ResponseWriter, r *http.Request) {
 	rows, err := DB.Query("SELECT code, company_name, email, used, COALESCE(used_by, ''), created_at, used_at FROM recruiter_invites ORDER BY created_at DESC")
 	if err != nil {
-		http.Error(w, "Failed to query invites: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("Error: %v", err)
+		http.Error(w, "Failed to query invites", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()

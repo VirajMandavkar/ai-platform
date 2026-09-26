@@ -53,7 +53,8 @@ func HandleCreateCohort(baseURL string) http.HandlerFunc {
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+			log.Printf("Error: %v", err)
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
 		}
 
@@ -104,7 +105,8 @@ func HandleCreateCohort(baseURL string) http.HandlerFunc {
 		_, err := DB.Exec(`INSERT INTO cohorts (id, title, scenario_id, api_key, duration_mins, safe_capacity_seats, authorized_emails, registered_candidates, recruiter_username, created_at, cohort_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			cohortID, req.Title, req.ScenarioID, storedKey, req.DurationMins, req.SafeCapacitySeats, string(authEmailsJSON), string(regCandJSON), recruiter, time.Now(), cohortURL)
 		if err != nil {
-			http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+			log.Printf("Error: %v", err)
+			http.Error(w, "Database error", http.StatusInternalServerError)
 			return
 		}
 
@@ -140,7 +142,8 @@ func HandleListCohorts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("Error: %v", err)
+		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -179,7 +182,8 @@ func HandleCohortAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+		log.Printf("Error: %v", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
@@ -219,14 +223,14 @@ func HandleCohortAuth(w http.ResponseWriter, r *http.Request) {
 		sessionID = generateSecureID("cand")
 		c.RegisteredCandidates[email] = sessionID
 		regCandJSON, _ := json.Marshal(c.RegisteredCandidates)
-		
+
 		_, _ = DB.Exec(`UPDATE cohorts SET registered_candidates = ? WHERE id = ?`, string(regCandJSON), cohortID)
 
 		name := req.Name
 		if name == "" {
 			name = strings.Split(email, "@")[0]
 		}
-		
+
 		inviteURL := fmt.Sprintf("/?token=%s", sessionID)
 		_, _ = DB.Exec(`INSERT INTO interviews (id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, created_at, invite_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			sessionID, name, email, c.ScenarioID, c.Title, c.APIKey, "BYOK", c.DurationMins, "IN_PROGRESS", time.Now(), inviteURL)

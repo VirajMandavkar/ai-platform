@@ -14,13 +14,13 @@ import (
 )
 
 type InterviewSession struct {
-	ID             string    `json:"id"`
-	CandidateName  string    `json:"candidate_name"`
-	CandidateEmail string    `json:"candidate_email"`
-	ScenarioID     string    `json:"scenario_id"`
-	ScenarioTitle  string    `json:"scenario_title"`
-	APIKey         string    `json:"api_key,omitempty"`
-	TargetProvider string    `json:"target_provider"`
+	ID                string    `json:"id"`
+	CandidateName     string    `json:"candidate_name"`
+	CandidateEmail    string    `json:"candidate_email"`
+	ScenarioID        string    `json:"scenario_id"`
+	ScenarioTitle     string    `json:"scenario_title"`
+	APIKey            string    `json:"api_key,omitempty"`
+	TargetProvider    string    `json:"target_provider"`
 	DurationMins      int       `json:"duration_mins"`
 	Status            string    `json:"status"` // "INVITED", "IN_PROGRESS", "COMPLETED"
 	RecruiterUsername string    `json:"recruiter_username,omitempty"`
@@ -33,7 +33,8 @@ func HandleListScenarios(scenariosBaseDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		entries, err := os.ReadDir(scenariosBaseDir)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			log.Printf("Error: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
 
@@ -67,24 +68,25 @@ func HandleSaveScenario(scenariosBaseDir string) http.HandlerFunc {
 		}
 
 		var payload struct {
-			ID          string           `json:"id"`
-			Title       string           `json:"title"`
-			Track       string           `json:"track"`
-			Duration    int              `json:"duration_minutes"`
-			Language    string           `json:"language"`
-			Cards       []map[string]any `json:"cards"`
-			VerifyCmd   string           `json:"verify_command"`
+			ID        string           `json:"id"`
+			Title     string           `json:"title"`
+			Track     string           `json:"track"`
+			Duration  int              `json:"duration_minutes"`
+			Language  string           `json:"language"`
+			Cards     []map[string]any `json:"cards"`
+			VerifyCmd string           `json:"verify_command"`
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+			log.Printf("Error: %v", err)
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
 		}
 
 		if payload.ID == "" {
 			payload.ID = fmt.Sprintf("custom-scenario-%d", time.Now().Unix())
 		}
-		
+
 		// Prevent path traversal
 		cleanID := filepath.Clean(payload.ID)
 		if strings.Contains(cleanID, "..") || strings.Contains(cleanID, "/") || strings.Contains(cleanID, "\\") {
@@ -157,7 +159,8 @@ func HandleCreateInterview(baseURL string) http.HandlerFunc {
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+			log.Printf("Error: %v", err)
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
 		}
 
@@ -203,7 +206,8 @@ func HandleCreateInterview(baseURL string) http.HandlerFunc {
 		_, err := DB.Exec(`INSERT INTO interviews (id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, cohort_id, recruiter_username, created_at, invite_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			session.ID, session.CandidateName, session.CandidateEmail, session.ScenarioID, session.ScenarioTitle, session.APIKey, session.TargetProvider, session.DurationMins, session.Status, "", session.RecruiterUsername, session.CreatedAt, session.InviteURL)
 		if err != nil {
-			http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+			log.Printf("Error: %v", err)
+			http.Error(w, "Database error", http.StatusInternalServerError)
 			return
 		}
 
@@ -228,7 +232,8 @@ func HandleListInterviews(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("Error: %v", err)
+		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -313,7 +318,8 @@ func HandleVerifyCandidate(w http.ResponseWriter, r *http.Request) {
 		Email string `json:"email"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+		log.Printf("Error: %v", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
@@ -378,4 +384,3 @@ func HandleVerifyCandidate(w http.ResponseWriter, r *http.Request) {
 
 	http.Error(w, "Assessment session not found or invalid token.", http.StatusNotFound)
 }
-

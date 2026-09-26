@@ -22,6 +22,7 @@ func init() {
 	}
 	jwtKey = []byte(secret)
 }
+
 type Claims struct {
 	Username string `json:"username"`
 	Role     string `json:"role"`
@@ -131,7 +132,8 @@ func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 
 	var req AuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request: "+err.Error(), http.StatusBadRequest)
+		log.Printf("Error: %v", err)
+		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
@@ -170,7 +172,6 @@ func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		"role":    role,
 	})
 }
-
 
 // HandleAdminMe returns the currently authenticated recruiter or false if unauthenticated
 func HandleAdminMe(w http.ResponseWriter, r *http.Request) {
@@ -237,7 +238,8 @@ func HandleSystemClean(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := CleanDatabase(); err != nil {
-		http.Error(w, "Database clean error: "+err.Error(), http.StatusInternalServerError)
+		log.Printf("Error: %v", err)
+		http.Error(w, "Database clean error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
