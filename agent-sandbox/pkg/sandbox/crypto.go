@@ -4,9 +4,11 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"io"
+	"log"
 	"os"
 	"strings"
 )
@@ -14,12 +16,11 @@ import (
 func getMasterKey() []byte {
 	k := os.Getenv("ENCRYPTION_MASTER_KEY")
 	if k == "" {
-		k = "triagehubs_secure_master_key_32"
+		k = "triagehubs_dev_default_key_change_me"
+		log.Println("[WARNING] ENCRYPTION_MASTER_KEY not set, using insecure default.")
 	}
-	for len(k) < 32 {
-		k += "!"
-	}
-	return []byte(k[:32])
+	hash := sha256.Sum256([]byte(k))
+	return hash[:]
 }
 
 // EncryptAPIKey encrypts sensitive keys using AES-256-GCM

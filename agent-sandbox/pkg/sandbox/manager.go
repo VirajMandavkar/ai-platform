@@ -139,12 +139,13 @@ func (m *Manager) GetOrCreateTerminal(sessionID, termID, termType string) (*PTYS
 	}
 
 	// Wait for process in background to reap zombies and clean session map
-	go func(sKey, cName string) {
-		_ = session.Cmd.Wait()
+	go func(sKey string, sess *PTYSession) {
+		_ = sess.Cmd.Wait()
+		sess.Close()
 		m.mu.Lock()
 		delete(m.sessions, sKey)
 		m.mu.Unlock()
-	}(sessionKey, containerName)
+	}(sessionKey, session)
 
 	m.sessions[sessionKey] = session
 	if termID == "1" {
@@ -179,9 +180,7 @@ func (m *Manager) CloseTerminal(sessionID, termID string) {
 
 	sessionKey := fmt.Sprintf("%s:%s", sessionID, termID)
 	if session, exists := m.sessions[sessionKey]; exists {
-		if session.cancelCtx != nil {
-			session.cancelCtx()
-		}
+		session.Close()
 		delete(m.sessions, sessionKey)
 	}
 	if termID == "1" {
@@ -197,9 +196,7 @@ func (m *Manager) TerminateSession(sessionID string) {
 	prefix := sessionID + ":"
 	for key, session := range m.sessions {
 		if key == sessionID || strings.HasPrefix(key, prefix) {
-			if session.cancelCtx != nil {
-				session.cancelCtx()
-			}
+			session.Close()
 			delete(m.sessions, key)
 		}
 	}

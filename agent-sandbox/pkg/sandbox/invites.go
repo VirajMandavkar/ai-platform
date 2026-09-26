@@ -45,7 +45,9 @@ type InviteRecord struct {
 
 func generateInviteCode() string {
 	b := make([]byte, 8)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		log.Fatalf("[FATAL] crypto/rand failed: %v", err)
+	}
 	return fmt.Sprintf("inv_%s", hex.EncodeToString(b))
 }
 
@@ -201,9 +203,8 @@ func HandlePilotRequest(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"status":      "ok",
-		"message":     "Your pilot request has been received. Our enterprise team will send your activation link shortly.",
-		"invite_code": inviteCode, // for dev convenience / testing
+		"status":  "ok",
+		"message": "Your pilot request has been received. Our enterprise team will send your activation link shortly.",
 	})
 }
 
@@ -271,6 +272,10 @@ func HandleListInvites(w http.ResponseWriter, r *http.Request) {
 			}
 			invites = append(invites, inv)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		http.Error(w, "Error reading invites", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

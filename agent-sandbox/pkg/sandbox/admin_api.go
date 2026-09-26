@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -165,7 +166,10 @@ func HandleCreateInterview(baseURL string) http.HandlerFunc {
 		}
 
 		b := make([]byte, 8)
-		_, _ = rand.Read(b)
+		if _, err := rand.Read(b); err != nil {
+			http.Error(w, "Internal error generating session", http.StatusInternalServerError)
+			return
+		}
 		sessionID := fmt.Sprintf("cand_%x", b)
 
 		recruiter := GetAuthenticatedRecruiter(r)
@@ -237,6 +241,10 @@ func HandleListInterviews(w http.ResponseWriter, r *http.Request) {
 			list = append(list, &s)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		http.Error(w, "Error reading interviews", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(list)
@@ -277,6 +285,9 @@ func HandlePlatformOverview(w http.ResponseWriter, r *http.Request) {
 				})
 			}
 		}
+		if err := rows.Err(); err != nil {
+			log.Printf("[platform] error iterating pilot requests: %v", err)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -310,14 +321,8 @@ func HandleVerifyCandidate(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(req.Name)
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 
-	// Allow demo tokens without strict match
-	if strings.HasPrefix(token, "demo") || strings.HasPrefix(token, "cand_demo") || token == "" {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"verified":       true,
-			"candidate_name": name,
-			"scenario_title": "Fix Priority Queue Slot Leak (Go)",
-		})
+	if token == "" {
+		http.Error(w, "Assessment token is required.", http.StatusBadRequest)
 		return
 	}
 

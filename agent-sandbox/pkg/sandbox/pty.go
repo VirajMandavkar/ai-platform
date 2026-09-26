@@ -16,6 +16,16 @@ type PTYSession struct {
 	cancelCtx context.CancelFunc
 }
 
+// Close releases the PTY file descriptor and cancels the session context.
+func (s *PTYSession) Close() {
+	if s.PTY != nil {
+		_ = s.PTY.Close()
+	}
+	if s.cancelCtx != nil {
+		s.cancelCtx()
+	}
+}
+
 // StartSession spawns a command inside a PTY with a strict timeout.
 func StartSession(timeout time.Duration, command string, args ...string) (*PTYSession, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)

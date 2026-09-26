@@ -286,10 +286,19 @@ func InitDB(dsn string) {
 		_, _ = DB.RawDB().Exec(`ALTER TABLE recruiters ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'recruiter';`)
 	}
 
-	// Bootstrap Super Admin account (admin@triagehubs.com) with bcrypt hash
-	adminHash, err := bcrypt.GenerateFromPassword([]byte("TriageHubsq1w@e3r$t5"), bcrypt.DefaultCost)
-	if err == nil {
-		_, _ = DB.Exec(`INSERT INTO recruiters (username, password_hash, role) VALUES ('admin@triagehubs.com', ?, 'admin') ON CONFLICT (username) DO UPDATE SET role = 'admin', password_hash = excluded.password_hash`, string(adminHash))
+	// Bootstrap Super Admin account from environment
+	adminPassword := os.Getenv("ADMIN_PASSWORD")
+	if adminPassword != "" {
+		adminHash, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
+		if err == nil {
+			// Only insert if no admin exists yet
+			var count int
+			_ = DB.QueryRow(`SELECT COUNT(*) FROM recruiters WHERE role = 'admin'`).Scan(&count)
+			if count == 0 {
+				_, _ = DB.Exec(`INSERT INTO recruiters (username, password_hash, role) VALUES ('admin@triagehubs.com', ?, 'admin') ON CONFLICT (username) DO NOTHING`, string(adminHash))
+				log.Println("[database] Super Admin account bootstrapped from ADMIN_PASSWORD")
+			}
+		}
 	}
 }
 

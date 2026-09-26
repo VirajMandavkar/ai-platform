@@ -24,11 +24,9 @@ type Config struct {
 
 // Handler Orchestrates rate-limiting and reverse-proxying LLM traffic
 type Handler struct {
-	proxy      *httputil.ReverseProxy
-	limiter    *limiter.Bucket
-	apiKeys    []string
-	keyCounter int
-	mu         sync.Mutex
+	proxy   *httputil.ReverseProxy
+	limiter *limiter.Bucket
+	apiKeys []string
 }
 
 // NewHandler creates a tuned reverse proxy and binds our concurrency limiter

@@ -131,11 +131,17 @@ func HandleGetWorkspaceFile(workspaceDir string) http.HandlerFunc {
 				http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
 				return
 			}
-			if payload.Path == "" || strings.Contains(payload.Path, "..") {
+			if payload.Path == "" {
 				http.Error(w, "Invalid path", http.StatusBadRequest)
 				return
 			}
-			fullPath := filepath.Join(workspaceDir, payload.Path)
+			fullPath := filepath.Clean(filepath.Join(workspaceDir, payload.Path))
+			absWorkspace, _ := filepath.Abs(workspaceDir)
+			absFull, _ := filepath.Abs(fullPath)
+			if !strings.HasPrefix(absFull, absWorkspace) {
+				http.Error(w, "Invalid path", http.StatusBadRequest)
+				return
+			}
 			if err := os.WriteFile(fullPath, []byte(payload.Content), 0644); err != nil {
 				http.Error(w, "Failed to save file: "+err.Error(), http.StatusInternalServerError)
 				return
@@ -150,12 +156,17 @@ func HandleGetWorkspaceFile(workspaceDir string) http.HandlerFunc {
 		}
 
 		relPath := r.URL.Query().Get("path")
-		if relPath == "" || strings.Contains(relPath, "..") {
+		if relPath == "" {
 			http.Error(w, "Invalid path", http.StatusBadRequest)
 			return
 		}
-
-		fullPath := filepath.Join(workspaceDir, relPath)
+		fullPath := filepath.Clean(filepath.Join(workspaceDir, relPath))
+		absWorkspace, _ := filepath.Abs(workspaceDir)
+		absFull, _ := filepath.Abs(fullPath)
+		if !strings.HasPrefix(absFull, absWorkspace) {
+			http.Error(w, "Invalid path", http.StatusBadRequest)
+			return
+		}
 		content, err := os.ReadFile(fullPath)
 		if err != nil {
 			http.Error(w, "File not found: "+err.Error(), http.StatusNotFound)
@@ -199,13 +210,9 @@ func HandleRunVerification() http.HandlerFunc {
 		cmd := exec.CommandContext(ctx, "docker", "exec", containerName, "/bin/bash", "-c", "cd /home/sandboxuser/workspace && if [ -f verify.sh ]; then bash verify.sh; else go test -v -race ./...; fi")
 		out, err := cmd.CombinedOutput()
 
-		// Attempt 2: If docker exec fails or container not running, run directly against workspacePath
-		if err != nil && (len(out) == 0 || strings.Contains(string(out), "No such container") || strings.Contains(string(out), "No such file")) {
-			localCmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("cd %s && (bash verify.sh 2>/dev/null || go test -v -race ./...)", workspacePath))
-			if localOut, localErr := localCmd.CombinedOutput(); len(localOut) > 0 {
-				out = localOut
-				err = localErr
-			}
+		// If container is not running, return error instead of running on host
+		if err != nil && (len(out) == 0 || strings.Contains(string(out), "No such container")) {
+			out = []byte("Container not running. Please start the assessment first.")
 		}
 
 		passed := (err == nil)

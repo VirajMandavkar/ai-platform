@@ -11,22 +11,25 @@ import (
 
 // PumpFromPTYToWebsocket continuously reads from the PTY and writes to the WebSocket.
 func PumpFromPTYToWebsocket(ctx context.Context, ptmx *os.File, ws *websocket.Conn) {
-	buf := make([]byte, 4096)
-	
-	// Since os.File.Read is blocking and ignores context, we'll run it in a separate goroutine
-	// that communicates via a channel, so this function can exit when ctx is canceled.
 	type readResult struct {
-		n   int
-		err error
+		data []byte
+		err  error
 	}
-	resultCh := make(chan readResult)
-	
+	resultCh := make(chan readResult, 1)
+
 	go func() {
+		buf := make([]byte, 4096)
 		for {
 			n, err := ptmx.Read(buf)
-			resultCh <- readResult{n, err}
+			if n > 0 {
+				// Copy data to a new slice to avoid race with next Read
+				data := make([]byte, n)
+				copy(data, buf[:n])
+				resultCh <- readResult{data: data}
+			}
 			if err != nil {
-				break
+				resultCh <- readResult{err: err}
+				return
 			}
 		}
 	}()
@@ -42,8 +45,7 @@ func PumpFromPTYToWebsocket(ctx context.Context, ptmx *os.File, ws *websocket.Co
 				}
 				return
 			}
-			err := ws.WriteMessage(websocket.TextMessage, buf[:res.n])
-			if err != nil {
+			if err := ws.WriteMessage(websocket.BinaryMessage, res.data); err != nil {
 				log.Printf("WebSocket write error, breaking loop: %v", err)
 				return
 			}

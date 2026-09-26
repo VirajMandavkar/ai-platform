@@ -15,8 +15,20 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		// Allow all origins for local dev/testing
-		return true
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true // Allow non-browser clients
+		}
+		allowed := os.Getenv("ALLOWED_ORIGINS")
+		if allowed == "" {
+			return true // Dev mode: allow all
+		}
+		for _, o := range strings.Split(allowed, ",") {
+			if strings.TrimSpace(o) == origin {
+				return true
+			}
+		}
+		return false
 	},
 }
 
@@ -116,7 +128,6 @@ func main() {
 
 	// Admin API - Auth
 	http.HandleFunc("/api/admin/login", sandbox.HandleAdminLogin)
-	http.HandleFunc("/api/admin/register", sandbox.HandleAdminRegister)
 	http.HandleFunc("/api/admin/me", sandbox.HandleAdminMe)
 	http.HandleFunc("/api/admin/logout", sandbox.HandleAdminLogout)
 
@@ -155,9 +166,7 @@ func main() {
 		}
 	}))
 
-	http.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./web/admin.html")
-	})
+
 
 	// Serve static files
 	fs := http.FileServer(http.Dir("./web"))

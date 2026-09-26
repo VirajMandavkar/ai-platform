@@ -2,7 +2,9 @@ package sandbox
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -10,8 +12,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtKey = []byte("super_secret_key_change_in_prod")
+var jwtKey []byte
 
+func init() {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		secret = "dev_only_jwt_secret_change_me_32"
+		log.Println("[WARNING] JWT_SECRET not set, using insecure default. Set JWT_SECRET env var in production.")
+	}
+	jwtKey = []byte(secret)
+}
 type Claims struct {
 	Username string `json:"username"`
 	Role     string `json:"role"`
@@ -58,15 +68,7 @@ func issueToken(w http.ResponseWriter, username string, optionalRole ...string) 
 		Name:     "triagehubs_token",
 		Value:    tokenString,
 		Expires:  expirationTime,
-		HttpOnly: false,
-		Path:     "/",
-		SameSite: http.SameSiteLaxMode,
-	})
-	http.SetCookie(w, &http.Cookie{
-		Name:     "admin_token",
-		Value:    tokenString,
-		Expires:  expirationTime,
-		HttpOnly: false,
+		HttpOnly: true,
 		Path:     "/",
 		SameSite: http.SameSiteLaxMode,
 	})
@@ -89,9 +91,6 @@ func extractToken(r *http.Request) string {
 	}
 
 	if cookie, err := r.Cookie("triagehubs_token"); err == nil && cookie.Value != "" {
-		return cookie.Value
-	}
-	if cookie, err := r.Cookie("admin_token"); err == nil && cookie.Value != "" {
 		return cookie.Value
 	}
 
@@ -152,16 +151,8 @@ func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	// Compare bcrypt hash
 	bcryptErr := bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.Password))
 	if bcryptErr != nil {
-		// Legacy fallback if password was saved in plaintext
-		if hash == req.Password {
-			// Upgrade plaintext password to bcrypt hash in DB
-			if newHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost); err == nil {
-				_, _ = DB.Exec("UPDATE recruiters SET password_hash = ? WHERE username = ?", string(newHash), identifier)
-			}
-		} else {
-			http.Error(w, "Invalid password", http.StatusUnauthorized)
-			return
-		}
+		http.Error(w, "Invalid password", http.StatusUnauthorized)
+		return
 	}
 
 	tokenString, err := issueToken(w, identifier, role)
@@ -180,55 +171,6 @@ func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HandleAdminRegister registers a new recruiter account with bcrypt hashing
-func HandleAdminRegister(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req AuthRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	identifier := req.GetIdentifier()
-	if identifier == "" || len(req.Password) < 3 {
-		http.Error(w, "Valid email/username and password (min 3 chars) required", http.StatusBadRequest)
-		return
-	}
-
-	// Hash password with bcrypt
-	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		http.Error(w, "Failed to secure password: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	passwordHash := string(hashedBytes)
-
-	// Insert into recruiters (or update password hash if exists)
-	_, err = DB.Exec("INSERT INTO recruiters (username, password_hash, role) VALUES (?, ?, 'recruiter') ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash", identifier, passwordHash)
-	if err != nil {
-		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	tokenString, err := issueToken(w, identifier, "recruiter")
-	if err != nil {
-		http.Error(w, "Internal error issuing session", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"status":  "ok",
-		"message": "Registered successfully",
-		"token":   tokenString,
-		"user":    identifier,
-		"role":    "recruiter",
-	})
-}
 
 // HandleAdminMe returns the currently authenticated recruiter or false if unauthenticated
 func HandleAdminMe(w http.ResponseWriter, r *http.Request) {
@@ -272,16 +214,7 @@ func HandleAdminLogout(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
-		HttpOnly: false,
-		Path:     "/",
-		SameSite: http.SameSiteLaxMode,
-	})
-	http.SetCookie(w, &http.Cookie{
-		Name:     "admin_token",
-		Value:    "",
-		Expires:  time.Unix(0, 0),
-		MaxAge:   -1,
-		HttpOnly: false,
+		HttpOnly: true,
 		Path:     "/",
 		SameSite: http.SameSiteLaxMode,
 	})

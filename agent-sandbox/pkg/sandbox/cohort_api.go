@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -13,7 +14,9 @@ import (
 
 func generateSecureID(prefix string) string {
 	b := make([]byte, 8)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		log.Fatalf("[FATAL] crypto/rand failed: %v", err)
+	}
 	return fmt.Sprintf("%s_%s", prefix, hex.EncodeToString(b))
 }
 
@@ -152,6 +155,10 @@ func HandleListCohorts(w http.ResponseWriter, r *http.Request) {
 			c.APIKey = MaskAPIKey(c.APIKey)
 			list = append(list, &c)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		http.Error(w, "Error reading cohorts", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
