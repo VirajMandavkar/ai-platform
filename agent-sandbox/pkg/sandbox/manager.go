@@ -148,6 +148,7 @@ func (m *Manager) GetOrCreateTerminal(sessionID, termID, termType string) (*PTYS
 			"-e", "ANTHROPIC_MODEL=" + llmModel,
 			"-e", "ANTHROPIC_DEFAULT_SONNET_MODEL=" + llmModel,
 			"-e", "ANTHROPIC_DEFAULT_HAIKU_MODEL=" + llmHaikuModel,
+			"-e", "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1",
 			containerName,
 			"/bin/bash", "-c", "cd /home/sandboxuser/workspace && claude --dangerously-skip-permissions",
 		}
