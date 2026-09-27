@@ -447,7 +447,7 @@
         let terminal = null;
         let fitAddon = null;
         let socket = null;
-        let activeFilePath = "internal/limiter/bucket.go";
+        let activeFilePath = "";
 
         // View Switcher (Terminal vs Code Editor)
         function switchView(view) {
@@ -469,7 +469,12 @@
                 tabEditorBtn.className = "px-3 py-1 rounded-md bg-blue-600 text-white font-medium flex items-center gap-1.5 transition";
                 tabTerminalBtn.className = "px-3 py-1 rounded-md text-slate-400 hover:text-white font-medium flex items-center gap-1.5 transition";
                 loadWorkspaceTree();
-                loadFileContent(activeFilePath);
+                if (activeFilePath) {
+                    loadFileContent(activeFilePath);
+                } else {
+                    document.getElementById('code-editor-textarea').value = "// Select a file from the workspace tree to view its contents.";
+                    document.getElementById('active-file-label').textContent = 'No file selected';
+                }
             }
             lucide.createIcons();
         }
@@ -969,6 +974,9 @@
                     const mins = Math.floor(timeLeft / 60).toString().padStart(2, '0');
                     const secs = (timeLeft % 60).toString().padStart(2, '0');
                     document.getElementById('timer-display').textContent = `${mins}:${secs}`;
+                    if (timeLeft === 1) {
+                        window.location.href = `/api/workspace/verify?sessionId=${encodeURIComponent(activeToken)}`;
+                    }
                 }
             }, 1000);
         }
@@ -1023,6 +1031,10 @@
 
             try {
                 const res = await fetch(`/api/workspace/file?sessionId=${encodeURIComponent(activeToken)}&path=${encodeURIComponent(filePath)}`);
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(errText);
+                }
                 const data = await res.json();
                 editorTextarea.value = data.content || "";
             } catch (err) {
