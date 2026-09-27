@@ -255,9 +255,11 @@ func seedWorkspace(dst string) {
 			for _, entry := range entries {
 				srcFile := filepath.Join(src, entry.Name())
 				dstFile := filepath.Join(dst, entry.Name())
-				if !entry.IsDir() {
-					if data, err := os.ReadFile(srcFile); err == nil {
-						_ = os.WriteFile(dstFile, data, 0644)
+				if (!entry.IsDir()) {
+					if _, err := os.Stat(dstFile); os.IsNotExist(err) {
+						if data, err := os.ReadFile(srcFile); err == nil {
+							_ = os.WriteFile(dstFile, data, 0644)
+						}
 					}
 				}
 			}
