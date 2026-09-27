@@ -136,10 +136,18 @@ func HandleActivateInvite(w http.ResponseWriter, r *http.Request) {
 	}
 	passwordHash := string(hashedBytes)
 
-	// 2. Insert or update recruiter account
-	_, err = DB.Exec("INSERT INTO recruiters (username, password_hash) VALUES (?, ?) ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash", email, passwordHash)
+	// 2. Check if recruiter account already exists to prevent account takeover
+	var existingCount int
+	err = DB.QueryRow("SELECT COUNT(*) FROM recruiters WHERE username = ?", email).Scan(&existingCount)
+	if err == nil && existingCount > 0 {
+		http.Error(w, "An account with this email address already exists. Please log in directly.", http.StatusConflict)
+		return
+	}
+
+	// Insert new recruiter account with recruiter role
+	_, err = DB.Exec("INSERT INTO recruiters (username, password_hash, role) VALUES (?, ?, 'recruiter')", email, passwordHash)
 	if err != nil {
-		log.Printf("Error: %v", err)
+		log.Printf("Error creating recruiter: %v", err)
 		http.Error(w, "Failed to create recruiter workspace", http.StatusInternalServerError)
 		return
 	}

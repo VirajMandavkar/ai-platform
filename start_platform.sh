@@ -22,15 +22,19 @@ cd ..
 echo "=== Starting proxy gateway ==="
 cd proxy-gateway
 export $(grep -v '^#' .env | xargs)
-go run ./cmd/proxy/main.go > ../proxy.log 2>&1 &
+go build -o proxy-server ./cmd/proxy/main.go
+nohup ./proxy-server > ../proxy.log 2>&1 &
 PROXY_PID=$!
+disown $PROXY_PID 2>/dev/null || true
 cd ..
 
 echo "=== Starting agent sandbox server ==="
 cd agent-sandbox
 export $(grep -v '^#' .env | xargs)
-go run ./cmd/sandbox/main.go > ../sandbox.log 2>&1 &
+go build -o sandbox-server ./cmd/sandbox/main.go
+nohup ./sandbox-server > ../sandbox.log 2>&1 &
 SANDBOX_PID=$!
+disown $SANDBOX_PID 2>/dev/null || true
 cd ..
 
 echo ""

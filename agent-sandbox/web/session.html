@@ -90,9 +90,17 @@
                         <i data-lucide="edit-3" class="w-3.5 h-3.5 text-brandBlue"></i>
                         <span>Edit Assessment</span>
                     </button>
+                    <a id="btn-download-workspace" href="#" target="_blank" class="px-3.5 py-2 border border-slate-300 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-lg hover:bg-slate-50 transition shadow-sm flex items-center gap-1.5" title="Download Candidate Workspace ZIP">
+                        <i data-lucide="download" class="w-3.5 h-3.5 text-slate-600"></i>
+                        <span>Download Solution</span>
+                    </a>
+                    <a id="btn-public-scorecard" href="#" target="_blank" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition shadow-sm flex items-center gap-1.5">
+                        <i data-lucide="award" class="w-3.5 h-3.5"></i>
+                        <span>Candidate Scorecard</span>
+                    </a>
                     <a id="btn-candidate-link" href="#" target="_blank" class="px-4 py-2 bg-brandDark hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition shadow-sm flex items-center gap-1.5">
                         <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-                        <span>Open Sandbox Test Entry</span>
+                        <span id="btn-candidate-link-label">Open Sandbox Test Entry</span>
                     </a>
                 </div>
             </div>
@@ -172,8 +180,14 @@
                     </h2>
                     <p class="text-xs text-slate-500 mt-0.5">Proprietary AI engineering benchmarks, anti-cheat audit log, and hiring recommendation</p>
                 </div>
-                <div id="scorecard-verdict-badge" class="px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-slate-100 text-slate-600">
-                    PENDING COMPLETION
+                <div class="flex items-center gap-3">
+                    <a id="btn-view-scorecard-ext" href="#" target="_blank" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition flex items-center gap-1.5 border border-slate-200">
+                        <i data-lucide="external-link" class="w-3.5 h-3.5 text-emerald-600"></i>
+                        <span>Open Public Scorecard Page</span>
+                    </a>
+                    <div id="scorecard-verdict-badge" class="px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-slate-100 text-slate-600">
+                        PENDING COMPLETION
+                    </div>
                 </div>
             </div>
 
@@ -310,8 +324,8 @@
                     </div>
                 </div>
 
-                <div id="godmode-scrubber-container" class="grid gap-1.5 h-8 bg-slate-900 rounded-lg p-1 border border-slate-800">
-                    <div class="text-slate-500 text-xs text-center py-1">Loading timeline checkpoints...</div>
+                <div id="godmode-scrubber-container" class="flex items-center gap-2 h-10 bg-slate-900 rounded-lg p-1.5 border border-slate-800 overflow-x-auto min-w-0 max-w-full">
+                    <div class="text-slate-500 text-xs text-center py-1 w-full">Loading timeline checkpoints...</div>
                 </div>
             </div>
         </div>
@@ -451,10 +465,31 @@
                     document.getElementById('btn-edit-session').classList.add('hidden');
                 }
 
-                // Invite link
+                // Download Solution link
+                const downloadBtn = document.getElementById('btn-download-workspace');
+                if (downloadBtn) {
+                    downloadBtn.href = `/api/workspace/download?sessionId=${encodeURIComponent(data.id)}`;
+                }
+
+                // Invite link & conditional candidate link
                 const inviteUrl = data.invite_url || `${window.location.origin}/sandbox.html?token=${data.id}`;
                 document.getElementById('detail-invite-url').textContent = inviteUrl;
-                document.getElementById('btn-candidate-link').href = inviteUrl;
+                const candLink = document.getElementById('btn-candidate-link');
+                const candLabel = document.getElementById('btn-candidate-link-label');
+                if (data.status === 'COMPLETED') {
+                    candLink.href = `${window.location.origin}/scorecard.html?sessionId=${encodeURIComponent(data.id)}`;
+                    if (candLabel) candLabel.textContent = 'View Candidate Scorecard';
+                } else {
+                    candLink.href = inviteUrl;
+                    if (candLabel) candLabel.textContent = 'Open Sandbox Test Entry';
+                }
+
+                // Scorecard links
+                const scorecardUrl = `${window.location.origin}/scorecard.html?sessionId=${encodeURIComponent(data.id)}`;
+                const pubScorecardBtn = document.getElementById('btn-public-scorecard');
+                if (pubScorecardBtn) pubScorecardBtn.href = scorecardUrl;
+                const secScorecardLink = document.getElementById('btn-view-scorecard-ext');
+                if (secScorecardLink) secScorecardLink.href = scorecardUrl;
 
                 lucide.createIcons();
             } catch (err) {
@@ -539,15 +574,18 @@
                 if (!res.ok) return;
                 const data = await res.json();
 
+                const summary = data.candidate_summary || {};
+                const verdict = summary.verdict || data.verdict;
+
                 // Verdict
                 const verdictEl = document.getElementById('scorecard-verdict-badge');
-                if (data.verdict) {
-                    verdictEl.textContent = data.verdict.replace('_', ' ');
-                    if (data.verdict === 'STRONG_HIRE') {
+                if (verdict) {
+                    verdictEl.textContent = verdict.replace(/_/g, ' ');
+                    if (verdict === 'STRONG_HIRE') {
                         verdictEl.className = "px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-300";
-                    } else if (data.verdict === 'HIRE') {
+                    } else if (verdict === 'HIRE') {
                         verdictEl.className = "px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-300";
-                    } else if (data.verdict === 'LEAN_NO_HIRE') {
+                    } else if (verdict === 'LEAN_NO_HIRE') {
                         verdictEl.className = "px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-300";
                     } else {
                         verdictEl.className = "px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-300";
@@ -555,15 +593,25 @@
                 }
 
                 // Metrics
-                if (data.prompt_churn_ratio) document.getElementById('metric-prompt-churn').textContent = data.prompt_churn_ratio;
-                if (data.ai_vs_manual_split) document.getElementById('metric-ai-split').textContent = data.ai_vs_manual_split;
-                if (data.time_to_first_working_state) document.getElementById('metric-ttfws').textContent = data.time_to_first_working_state;
+                const promptChurn = summary.prompt_churn_ratio || data.prompt_churn_ratio;
+                if (promptChurn) document.getElementById('metric-prompt-churn').textContent = promptChurn;
+
+                const aiSplit = summary.ai_vs_manual_split || data.ai_vs_manual_split;
+                if (aiSplit) document.getElementById('metric-ai-split').textContent = aiSplit;
+
+                const ttfws = summary.time_to_first_working_state || data.time_to_first_working_state;
+                if (ttfws) document.getElementById('metric-ttfws').textContent = ttfws;
+
+                const archDrift = summary.architectural_drift || data.architectural_drift;
+                const driftEl = document.getElementById('metric-drift');
+                if (driftEl && archDrift) driftEl.textContent = archDrift;
 
                 // Integrity Score
-                if (data.integrity_score !== undefined) {
+                const integrity = summary.integrity_score !== undefined ? summary.integrity_score : data.integrity_score;
+                if (integrity !== undefined) {
                     const intEl = document.getElementById('metric-integrity-score');
-                    intEl.textContent = `Score: ${data.integrity_score} / 100`;
-                    if (data.integrity_score < 70) {
+                    intEl.textContent = typeof integrity === 'number' ? `Score: ${integrity} / 100` : `${integrity}`;
+                    if (parseInt(integrity) < 70) {
                         intEl.className = "font-bold text-xs text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded";
                     }
                 }
@@ -615,19 +663,16 @@
             container.innerHTML = '';
 
             if (!activeGodModeTimeline || activeGodModeTimeline.length === 0) {
-                container.style.gridTemplateColumns = 'repeat(1, minmax(0, 1fr))';
-                container.innerHTML = '<div class="text-slate-500 text-xs text-center py-1">No playback events recorded yet.</div>';
+                container.innerHTML = '<div class="text-slate-500 text-xs text-center py-1 w-full">No playback events recorded yet.</div>';
                 return;
             }
-
-            container.style.gridTemplateColumns = `repeat(${activeGodModeTimeline.length}, minmax(0, 1fr))`;
 
             activeGodModeTimeline.forEach((item, idx) => {
                 const btn = document.createElement('button');
                 btn.id = 'seg-' + idx;
                 btn.onclick = () => selectGodModeIndex(idx);
 
-                let baseClass = "h-full rounded text-[10px] font-bold flex items-center justify-center transition truncate px-2 whitespace-nowrap ";
+                let baseClass = "flex-shrink-0 h-full rounded text-[11px] font-bold flex items-center justify-center transition px-3 whitespace-nowrap shadow-sm ";
                 if (item.zone === 'red') {
                     baseClass += "bg-red-600/30 hover:bg-red-600/50 border border-red-500/50 text-red-300";
                 } else if (item.zone === 'yellow') {

@@ -578,14 +578,14 @@ func HandleUpdateInterview(w http.ResponseWriter, r *http.Request) {
 		scenario_id = CASE WHEN ? != '' THEN ? ELSE scenario_id END,
 		scenario_title = CASE WHEN ? != '' THEN ? ELSE scenario_title END,
 		duration_mins = CASE WHEN ? > 0 THEN ? ELSE duration_mins END,
-		scheduled_at = ?
+		scheduled_at = CASE WHEN ? IS NOT NULL THEN ? ELSE scheduled_at END
 		WHERE id = ?`,
 		req.CandidateName, req.CandidateName,
 		req.CandidateEmail, req.CandidateEmail,
 		req.ScenarioID, req.ScenarioID,
 		req.ScenarioTitle, req.ScenarioTitle,
 		req.DurationMins, req.DurationMins,
-		schedVal, id)
+		schedVal, schedVal, id)
 	if err != nil {
 		log.Printf("Error updating interview %s: %v", id, err)
 		http.Error(w, "Database error updating assessment", http.StatusInternalServerError)
@@ -601,7 +601,17 @@ func HandleUpdateInterview(w http.ResponseWriter, r *http.Request) {
 
 func extractZip(zipReader *zip.Reader, destDir string) error {
 	cleanDest := filepath.Clean(destDir)
+	var totalExtracted int64
+	const maxTotalSize = 50 << 20 // 50MB total uncompressed limit
+	const maxFileSize = 25 << 20  // 25MB per file limit
+
 	for _, f := range zipReader.File {
+		// Reject symlinks to prevent arbitrary file overwrite outside destDir
+		if f.Mode()&os.ModeSymlink != 0 {
+			log.Printf("[zip] skipping symlink entry %s for security", f.Name)
+			continue
+		}
+
 		cleanName := filepath.Clean(f.Name)
 		if strings.HasPrefix(cleanName, "..") || filepath.IsAbs(cleanName) {
 			continue
@@ -620,7 +630,13 @@ func extractZip(zipReader *zip.Reader, destDir string) error {
 			return err
 		}
 
-		outFile, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		// Enforce safe permission mask
+		mode := (f.Mode() & 0755) | 0644
+		if strings.HasSuffix(targetPath, ".sh") {
+			mode = 0755
+		}
+
+		outFile, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
 		if err != nil {
 			return err
 		}
@@ -631,11 +647,16 @@ func extractZip(zipReader *zip.Reader, destDir string) error {
 			return err
 		}
 
-		_, err = io.Copy(outFile, rc)
+		written, err := io.Copy(outFile, io.LimitReader(rc, maxFileSize))
 		rc.Close()
 		outFile.Close()
 		if err != nil {
 			return err
+		}
+
+		totalExtracted += written
+		if totalExtracted > maxTotalSize {
+			return fmt.Errorf("zip extraction exceeded maximum size limit of %d bytes", maxTotalSize)
 		}
 
 		if strings.HasSuffix(targetPath, ".sh") {

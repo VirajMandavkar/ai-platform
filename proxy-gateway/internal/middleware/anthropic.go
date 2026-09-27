@@ -23,6 +23,24 @@ func PromptCacheMiddleware(next http.Handler) http.Handler {
 			}
 			_ = r.Body.Close()
 
+			// Check if using native Anthropic API key
+			apiKey := r.Header.Get("x-api-key")
+			if apiKey == "" {
+				auth := r.Header.Get("Authorization")
+				if strings.HasPrefix(auth, "Bearer ") {
+					apiKey = strings.TrimPrefix(auth, "Bearer ")
+				}
+			}
+
+			if strings.HasPrefix(apiKey, "sk-ant") {
+				// Native Anthropic key: do not translate to OpenAI
+				r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+				r.ContentLength = int64(len(bodyBytes))
+				r.Header.Set("Content-Length", strconv.Itoa(len(bodyBytes)))
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			targetModel := os.Getenv("GROQ_MODEL")
 			if targetModel == "" {
 				targetModel = os.Getenv("DEFAULT_MODEL")

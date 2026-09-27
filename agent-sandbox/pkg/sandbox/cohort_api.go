@@ -233,7 +233,7 @@ func HandleCohortAuth(w http.ResponseWriter, r *http.Request) {
 
 		inviteURL := fmt.Sprintf("/?token=%s", sessionID)
 		_, _ = DB.Exec(`INSERT INTO interviews (id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, created_at, invite_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			sessionID, name, email, c.ScenarioID, c.Title, c.APIKey, "BYOK", c.DurationMins, "IN_PROGRESS", time.Now(), inviteURL)
+			sessionID, name, email, c.ScenarioID, c.Title, c.APIKey, "BYOK", c.DurationMins, "INVITED", time.Now(), inviteURL)
 	}
 
 	resp := map[string]any{

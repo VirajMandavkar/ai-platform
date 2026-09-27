@@ -74,7 +74,7 @@
     </header>
 
     <!-- Main Content Area -->
-    <main class="flex-grow p-8 max-w-7xl mx-auto w-full space-y-8">
+    <main id="main-content" class="hidden flex-grow p-8 max-w-7xl mx-auto w-full space-y-8">
 
         <!-- Page Intro Header -->
         <div class="flex items-center justify-between">
@@ -342,17 +342,21 @@
                 const res = await fetch('/api/admin/me');
                 if (!res.ok) {
                     window.location.href = '/login.html';
-                    return;
+                    return false;
                 }
                 const data = await res.json();
                 if (data.role !== 'admin') {
                     alert('Access Denied: Super Admin console requires admin authority.');
                     window.location.href = '/dashboard.html';
-                    return;
+                    return false;
                 }
                 document.getElementById('dropdown-username').textContent = data.username || 'admin@triagehubs.com';
+                const mainEl = document.getElementById('main-content');
+                if (mainEl) mainEl.classList.remove('hidden');
+                return true;
             } catch (err) {
                 window.location.href = '/login.html';
+                return false;
             }
         }
 
@@ -567,9 +571,11 @@
         }
 
         // Initialize Page
-        checkSuperAdmin().then(() => {
-            loadPlatformOverview();
-            loadInvites();
+        checkSuperAdmin().then((isAdmin) => {
+            if (isAdmin) {
+                loadPlatformOverview();
+                loadInvites();
+            }
         });
     </script>
 </body>

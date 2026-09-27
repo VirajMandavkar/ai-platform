@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -85,7 +86,13 @@ func NewHandler(cfg Config) *Handler {
 			pr.SetURL(parsedTarget)
 			pr.Out.Host = parsedTarget.Host
 
-			if apiKey != "" {
+			if strings.HasPrefix(apiKey, "sk-ant") {
+				pr.Out.Header.Set("x-api-key", apiKey)
+				if pr.Out.Header.Get("anthropic-version") == "" {
+					pr.Out.Header.Set("anthropic-version", "2023-06-01")
+				}
+				pr.Out.Header.Del("Authorization")
+			} else if apiKey != "" {
 				pr.Out.Header.Set("x-api-key", apiKey)
 				pr.Out.Header.Set("Authorization", "Bearer "+apiKey)
 			}
@@ -98,7 +105,59 @@ func NewHandler(cfg Config) *Handler {
 			if res.StatusCode >= 400 {
 				body, _ := io.ReadAll(res.Body)
 				log.Printf("[upstream error body] %s", string(body))
-				res.Body = io.NopCloser(bytes.NewReader(body))
+
+				var parsed struct {
+					Type string `json:"type"`
+				}
+				if err := json.Unmarshal(body, &parsed); err == nil && parsed.Type == "error" {
+					// Already formatted as Anthropic error
+					res.Body = io.NopCloser(bytes.NewReader(body))
+					return nil
+				}
+
+				var openAIError struct {
+					Error struct {
+						Message string `json:"message"`
+						Type    string `json:"type"`
+					} `json:"error"`
+				}
+				errorMessage := string(body)
+				errorType := "api_error"
+				if res.StatusCode == 401 {
+					errorType = "authentication_error"
+				} else if res.StatusCode == 404 {
+					errorType = "not_found_error"
+				} else if res.StatusCode == 429 {
+					errorType = "rate_limit_error"
+				} else if res.StatusCode == 400 {
+					errorType = "invalid_request_error"
+				}
+
+				if err := json.Unmarshal(body, &openAIError); err == nil && openAIError.Error.Message != "" {
+					errorMessage = openAIError.Error.Message
+					if openAIError.Error.Type != "" {
+						errorType = openAIError.Error.Type
+					}
+				}
+
+				anthropicErr := map[string]any{
+					"type": "error",
+					"error": map[string]any{
+						"type":    errorType,
+						"message": errorMessage,
+					},
+				}
+				newBody, _ := json.Marshal(anthropicErr)
+				res.Body = io.NopCloser(bytes.NewReader(newBody))
+				res.ContentLength = int64(len(newBody))
+				res.Header.Set("Content-Length", strconv.Itoa(len(newBody)))
+				res.Header.Set("Content-Type", "application/json")
+				return nil
+			}
+
+			// If upstream is native Anthropic, pass through directly
+			authKey := res.Request.Header.Get("x-api-key")
+			if strings.HasPrefix(authKey, "sk-ant") {
 				return nil
 			}
 

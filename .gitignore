@@ -9,9 +9,13 @@ dist/
 main
 *-daemon
 sandbox-daemon
+sandbox-server
+proxy-server
 agent-sandbox/main
 agent-sandbox/sandbox-daemon
+agent-sandbox/sandbox-server
 proxy-gateway/main
+proxy-gateway/proxy-server
 
 # Logs & Database
 *.log

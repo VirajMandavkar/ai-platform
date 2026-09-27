@@ -20,11 +20,30 @@ type Manager struct {
 	containers map[string]string      // sessionID -> containerName
 }
 
+var (
+	defaultMgrMu sync.RWMutex
+	defaultMgr   *Manager
+)
+
+func SetDefaultManager(m *Manager) {
+	defaultMgrMu.Lock()
+	defer defaultMgrMu.Unlock()
+	defaultMgr = m
+}
+
+func GetDefaultManager() *Manager {
+	defaultMgrMu.RLock()
+	defer defaultMgrMu.RUnlock()
+	return defaultMgr
+}
+
 func NewManager() *Manager {
-	return &Manager{
+	m := &Manager{
 		sessions:   make(map[string]*PTYSession),
 		containers: make(map[string]string),
 	}
+	SetDefaultManager(m)
+	return m
 }
 
 // CreateAndStart launches an isolated shell inside a Docker container (defaults to term 1: claude).
@@ -170,13 +189,16 @@ func (m *Manager) GetOrCreateTerminal(sessionID, termID, termType string) (*PTYS
 	}
 
 	// Wait for process in background to reap zombies and clean session map
-	go func(sKey string, sess *PTYSession) {
+	go func(sKey, sID, tID string, sess *PTYSession) {
 		_ = sess.Cmd.Wait()
 		sess.Close()
 		m.mu.Lock()
 		delete(m.sessions, sKey)
+		if tID == "1" {
+			delete(m.sessions, sID)
+		}
 		m.mu.Unlock()
-	}(sessionKey, session)
+	}(sessionKey, sessionID, termID, session)
 
 	m.sessions[sessionKey] = session
 	if termID == "1" {
@@ -239,6 +261,16 @@ func (m *Manager) TerminateSession(sessionID string) {
 		}
 		delete(m.containers, sessionID)
 	}
+}
+
+// GetContainerName returns the assigned container name for a session or the default naming convention
+func (m *Manager) GetContainerName(sessionID string) string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if c, exists := m.containers[sessionID]; exists && c != "" {
+		return c
+	}
+	return fmt.Sprintf("ai-sandbox-%s", sessionID)
 }
 
 // seedWorkspace populates a candidate workspace with scenario files and verify.sh

@@ -283,7 +283,6 @@ func HandleGetScorecard(w http.ResponseWriter, r *http.Request) {
 	scorecard := st.GenerateScorecard()
 
 	sandbox.DB.Exec(`UPDATE telemetry_sessions SET verdict = ? WHERE session_id = ?`, st.Verdict, sessionID)
-	sandbox.DB.Exec(`UPDATE interviews SET status = 'COMPLETED' WHERE id = ?`, sessionID)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(scorecard)

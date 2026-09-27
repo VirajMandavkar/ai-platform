@@ -122,7 +122,7 @@ func (b *Bucket) Release() {
 	var nextWaiter *Waiter
 	if len(b.queue) > 0 {
 		nextWaiter = heap.Pop(&b.queue).(*Waiter)
-	} else {
+	} else if b.active > 0 {
 		b.active--
 	}
 

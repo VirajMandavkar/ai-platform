@@ -48,15 +48,19 @@ func TestWorkspaceAPI_GetScenario(t *testing.T) {
 }
 
 func TestWorkspaceAPI_TreeAndFile(t *testing.T) {
-	tempWorkspace := t.TempDir()
-	_ = os.WriteFile(filepath.Join(tempWorkspace, "main.go"), []byte("package main\n"), 0644)
-	subDir := filepath.Join(tempWorkspace, "pkg")
+	sessionID := "test-session-tree"
+	workspaceDir := filepath.Join(".", "workspaces", sessionID)
+	_ = os.MkdirAll(workspaceDir, 0755)
+	defer os.RemoveAll(filepath.Join(".", "workspaces", sessionID))
+
+	_ = os.WriteFile(filepath.Join(workspaceDir, "main.go"), []byte("package main\n"), 0644)
+	subDir := filepath.Join(workspaceDir, "pkg")
 	_ = os.MkdirAll(subDir, 0755)
 	_ = os.WriteFile(filepath.Join(subDir, "util.go"), []byte("package pkg\n"), 0644)
 
 	// 1. Test Tree
-	treeHandler := HandleGetWorkspaceTree(tempWorkspace)
-	reqTree := httptest.NewRequest(http.MethodGet, "/api/workspace/tree", nil)
+	treeHandler := HandleGetWorkspaceTree()
+	reqTree := httptest.NewRequest(http.MethodGet, "/api/workspace/tree?sessionId="+sessionID, nil)
 	recTree := httptest.NewRecorder()
 	treeHandler(recTree, reqTree)
 
@@ -74,8 +78,8 @@ func TestWorkspaceAPI_TreeAndFile(t *testing.T) {
 	}
 
 	// 2. Test File
-	fileHandler := HandleGetWorkspaceFile(tempWorkspace)
-	reqFile := httptest.NewRequest(http.MethodGet, "/api/workspace/file?path=main.go", nil)
+	fileHandler := HandleGetWorkspaceFile()
+	reqFile := httptest.NewRequest(http.MethodGet, "/api/workspace/file?sessionId="+sessionID+"&path=main.go", nil)
 	recFile := httptest.NewRecorder()
 	fileHandler(recFile, reqFile)
 
@@ -87,5 +91,20 @@ func TestWorkspaceAPI_TreeAndFile(t *testing.T) {
 	_ = json.NewDecoder(recFile.Body).Decode(&fileResp)
 	if !strings.Contains(fileResp["content"].(string), "package main") {
 		t.Errorf("unexpected file content: %v", fileResp["content"])
+	}
+
+	// 3. Test Path Traversal Protection
+	reqTraversal := httptest.NewRequest(http.MethodGet, "/api/workspace/file?sessionId=../../etc&path=passwd", nil)
+	recTraversal := httptest.NewRecorder()
+	fileHandler(recTraversal, reqTraversal)
+	if recTraversal.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for path traversal session ID, got %d", recTraversal.Code)
+	}
+
+	reqRelTraversal := httptest.NewRequest(http.MethodGet, "/api/workspace/file?sessionId="+sessionID+"&path=../../etc/passwd", nil)
+	recRelTraversal := httptest.NewRecorder()
+	fileHandler(recRelTraversal, reqRelTraversal)
+	if recRelTraversal.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for relative path traversal, got %d", recRelTraversal.Code)
 	}
 }

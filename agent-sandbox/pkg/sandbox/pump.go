@@ -25,10 +25,17 @@ func PumpFromPTYToWebsocket(ctx context.Context, ptmx *os.File, ws *websocket.Co
 				// Copy data to a new slice to avoid race with next Read
 				data := make([]byte, n)
 				copy(data, buf[:n])
-				resultCh <- readResult{data: data}
+				select {
+				case <-ctx.Done():
+					return
+				case resultCh <- readResult{data: data}:
+				}
 			}
 			if err != nil {
-				resultCh <- readResult{err: err}
+				select {
+				case <-ctx.Done():
+				case resultCh <- readResult{err: err}:
+				}
 				return
 			}
 		}

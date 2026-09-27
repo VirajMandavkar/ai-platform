@@ -138,7 +138,7 @@
 
         // Extract session ID
         const urlParams = new URLSearchParams(window.location.search);
-        const sessionID = urlParams.get('sessionId') || urlParams.get('token') || 'cand_demo';
+        const sessionID = urlParams.get('sessionId') || urlParams.get('id') || urlParams.get('token') || 'cand_demo';
         document.getElementById('header-token-display').textContent = sessionID;
         document.getElementById('zip-filename-display').textContent = `candidate-solution-${sessionID}.zip`;
 
@@ -180,22 +180,27 @@
                 }
 
                 // Render candidate prompts
-                promptsData = data.candidate_prompts || [
-                    { time: "02:15", prompt: "claude: Build high-concurrency token bucket limiter with priority queue support in Go." },
-                    { time: "11:40", prompt: "Fix race condition under parallel load in TestBucketLeak." },
-                    { time: "24:30", prompt: "Verify package imports and run full automated verification script." }
-                ];
+                promptsData = data.candidate_prompts || [];
 
                 renderPrompts(promptsData);
                 lucide.createIcons();
             } catch (err) {
                 console.error("Error loading candidate takeaway data:", err);
+                const container = document.getElementById('prompts-list');
+                if (container) {
+                    container.innerHTML = '<div class="p-6 text-center text-slate-500 text-xs italic">Unable to load prompt history.</div>';
+                }
             }
         }
 
         function renderPrompts(prompts) {
             const container = document.getElementById('prompts-list');
             container.innerHTML = '';
+
+            if (!prompts || prompts.length === 0) {
+                container.innerHTML = '<div class="p-6 text-center text-slate-500 text-xs italic bg-slate-950/50 rounded-xl border border-slate-900">No prompt logs were captured for this session.</div>';
+                return;
+            }
 
             prompts.forEach((p, idx) => {
                 const item = document.createElement('div');

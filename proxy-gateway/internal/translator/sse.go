@@ -33,15 +33,15 @@ func TranslateAnthropicToOpenAI(bodyBytes []byte, targetModel string) ([]byte, e
 		return nil, fmt.Errorf("unmarshal anthropic request: %w", err)
 	}
 
-	if req.Model != "" {
-		cleanModel := req.Model
-		if idx := strings.Index(cleanModel, "\x1b"); idx != -1 {
-			cleanModel = cleanModel[:idx]
-		}
-		if strings.HasPrefix(cleanModel, "claude-") {
-			targetModel = "anthropic/" + cleanModel
-		} else {
+	if targetModel == "" {
+		if req.Model != "" {
+			cleanModel := req.Model
+			if idx := strings.Index(cleanModel, "\x1b"); idx != -1 {
+				cleanModel = cleanModel[:idx]
+			}
 			targetModel = cleanModel
+		} else {
+			targetModel = "claude-3-5-sonnet-20241022"
 		}
 	}
 
@@ -230,14 +230,16 @@ type StreamState struct {
 	ActiveToolID   string
 	ActiveToolName string
 	TotalOutputTok int
+	TotalInputTok  int
 }
 
 // NewStreamState creates initial state for streaming
 func NewStreamState(model string) *StreamState {
 	return &StreamState{
-		MessageID:  fmt.Sprintf("msg_%d", time.Now().UnixNano()),
-		Model:      model,
-		BlockIndex: -1,
+		MessageID:     fmt.Sprintf("msg_%d", time.Now().UnixNano()),
+		Model:         model,
+		BlockIndex:    -1,
+		TotalInputTok: 100,
 	}
 }
 
@@ -262,28 +264,44 @@ func TranslateOpenAISSEToAnthropic(r io.Reader, w io.Writer, state *StreamState)
 		if payload == "[DONE]" {
 			// Close any open block
 			if state.InsideText || state.InsideTool {
-				writeSSEEvent(w, "content_block_stop", map[string]any{
+				if err := writeSSEEvent(w, "content_block_stop", map[string]any{
 					"type":  "content_block_stop",
 					"index": state.BlockIndex,
-				})
+				}); err != nil {
+					return err
+				}
 				state.InsideText = false
 				state.InsideTool = false
 			}
 
+			inputTok := state.TotalInputTok
+			if inputTok == 0 {
+				inputTok = 100
+			}
+			outputTok := state.TotalOutputTok
+			if outputTok == 0 {
+				outputTok = 1
+			}
+
 			// Final message_delta and message_stop
-			writeSSEEvent(w, "message_delta", map[string]any{
+			if err := writeSSEEvent(w, "message_delta", map[string]any{
 				"type": "message_delta",
 				"delta": map[string]any{
 					"stop_reason":   "end_turn",
 					"stop_sequence": nil,
 				},
 				"usage": map[string]any{
-					"output_tokens": state.TotalOutputTok,
+					"input_tokens":  inputTok,
+					"output_tokens": outputTok,
 				},
-			})
-			writeSSEEvent(w, "message_stop", map[string]any{
+			}); err != nil {
+				return err
+			}
+			if err := writeSSEEvent(w, "message_stop", map[string]any{
 				"type": "message_stop",
-			})
+			}); err != nil {
+				return err
+			}
 			break
 		}
 
@@ -293,10 +311,24 @@ func TranslateOpenAISSEToAnthropic(r io.Reader, w io.Writer, state *StreamState)
 			continue
 		}
 
+		// Update usage if provided in stream chunk
+		if chunk.Usage != nil {
+			if chunk.Usage.PromptTokens > 0 {
+				state.TotalInputTok = chunk.Usage.PromptTokens
+			}
+			if chunk.Usage.CompletionTokens > 0 {
+				state.TotalOutputTok = chunk.Usage.CompletionTokens
+			}
+		}
+
 		// 1. Emit message_start on the very first event
 		if !state.Started {
 			state.Started = true
-			writeSSEEvent(w, "message_start", map[string]any{
+			inputTok := state.TotalInputTok
+			if inputTok == 0 {
+				inputTok = 100
+			}
+			if err := writeSSEEvent(w, "message_start", map[string]any{
 				"type": "message_start",
 				"message": map[string]any{
 					"id":            state.MessageID,
@@ -307,11 +339,13 @@ func TranslateOpenAISSEToAnthropic(r io.Reader, w io.Writer, state *StreamState)
 					"stop_reason":   nil,
 					"stop_sequence": nil,
 					"usage": map[string]any{
-						"input_tokens":  1,
+						"input_tokens":  inputTok,
 						"output_tokens": 1,
 					},
 				},
-			})
+			}); err != nil {
+				return err
+			}
 		}
 
 		if len(chunk.Choices) == 0 {
@@ -325,10 +359,12 @@ func TranslateOpenAISSEToAnthropic(r io.Reader, w io.Writer, state *StreamState)
 		if delta.Content != "" {
 			// If we were inside a tool call, close it
 			if state.InsideTool {
-				writeSSEEvent(w, "content_block_stop", map[string]any{
+				if err := writeSSEEvent(w, "content_block_stop", map[string]any{
 					"type":  "content_block_stop",
 					"index": state.BlockIndex,
-				})
+				}); err != nil {
+					return err
+				}
 				state.InsideTool = false
 			}
 
@@ -336,25 +372,34 @@ func TranslateOpenAISSEToAnthropic(r io.Reader, w io.Writer, state *StreamState)
 			if !state.InsideText {
 				state.BlockIndex++
 				state.InsideText = true
-				writeSSEEvent(w, "content_block_start", map[string]any{
+				if err := writeSSEEvent(w, "content_block_start", map[string]any{
 					"type":  "content_block_start",
 					"index": state.BlockIndex,
 					"content_block": map[string]any{
 						"type": "text",
 						"text": "",
 					},
-				})
+				}); err != nil {
+					return err
+				}
 			}
 
-			state.TotalOutputTok++
-			writeSSEEvent(w, "content_block_delta", map[string]any{
+			tokEst := len(delta.Content) / 4
+			if tokEst < 1 {
+				tokEst = 1
+			}
+			state.TotalOutputTok += tokEst
+
+			if err := writeSSEEvent(w, "content_block_delta", map[string]any{
 				"type":  "content_block_delta",
 				"index": state.BlockIndex,
 				"delta": map[string]any{
 					"type": "text_delta",
 					"text": delta.Content,
 				},
-			})
+			}); err != nil {
+				return err
+			}
 		}
 
 		// 3. Handle Tool Calls
@@ -363,10 +408,12 @@ func TranslateOpenAISSEToAnthropic(r io.Reader, w io.Writer, state *StreamState)
 				// New tool call starting
 				if tc.ID != "" || !state.InsideTool {
 					if state.InsideText || state.InsideTool {
-						writeSSEEvent(w, "content_block_stop", map[string]any{
+						if err := writeSSEEvent(w, "content_block_stop", map[string]any{
 							"type":  "content_block_stop",
 							"index": state.BlockIndex,
-						})
+						}); err != nil {
+							return err
+						}
 						state.InsideText = false
 						state.InsideTool = false
 					}
@@ -379,7 +426,7 @@ func TranslateOpenAISSEToAnthropic(r io.Reader, w io.Writer, state *StreamState)
 					}
 					state.ActiveToolName = tc.Function.Name
 
-					writeSSEEvent(w, "content_block_start", map[string]any{
+					if err := writeSSEEvent(w, "content_block_start", map[string]any{
 						"type":  "content_block_start",
 						"index": state.BlockIndex,
 						"content_block": map[string]any{
@@ -388,20 +435,29 @@ func TranslateOpenAISSEToAnthropic(r io.Reader, w io.Writer, state *StreamState)
 							"name":  state.ActiveToolName,
 							"input": map[string]any{},
 						},
-					})
+					}); err != nil {
+						return err
+					}
 				}
 
 				// Stream arguments fragment
 				if tc.Function.Arguments != "" {
-					state.TotalOutputTok++
-					writeSSEEvent(w, "content_block_delta", map[string]any{
+					tokEst := len(tc.Function.Arguments) / 4
+					if tokEst < 1 {
+						tokEst = 1
+					}
+					state.TotalOutputTok += tokEst
+
+					if err := writeSSEEvent(w, "content_block_delta", map[string]any{
 						"type":  "content_block_delta",
 						"index": state.BlockIndex,
 						"delta": map[string]any{
 							"type":         "input_json_delta",
 							"partial_json": tc.Function.Arguments,
 						},
-					})
+					}); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -409,10 +465,12 @@ func TranslateOpenAISSEToAnthropic(r io.Reader, w io.Writer, state *StreamState)
 		// 4. Handle finish reason
 		if choice.FinishReason != nil && *choice.FinishReason != "" {
 			if state.InsideText || state.InsideTool {
-				writeSSEEvent(w, "content_block_stop", map[string]any{
+				if err := writeSSEEvent(w, "content_block_stop", map[string]any{
 					"type":  "content_block_stop",
 					"index": state.BlockIndex,
-				})
+				}); err != nil {
+					return err
+				}
 				state.InsideText = false
 				state.InsideTool = false
 			}
@@ -422,19 +480,33 @@ func TranslateOpenAISSEToAnthropic(r io.Reader, w io.Writer, state *StreamState)
 				stopReason = "tool_use"
 			}
 
-			writeSSEEvent(w, "message_delta", map[string]any{
+			inputTok := state.TotalInputTok
+			if inputTok == 0 {
+				inputTok = 100
+			}
+			outputTok := state.TotalOutputTok
+			if outputTok == 0 {
+				outputTok = 1
+			}
+
+			if err := writeSSEEvent(w, "message_delta", map[string]any{
 				"type": "message_delta",
 				"delta": map[string]any{
 					"stop_reason":   stopReason,
 					"stop_sequence": nil,
 				},
 				"usage": map[string]any{
-					"output_tokens": state.TotalOutputTok,
+					"input_tokens":  inputTok,
+					"output_tokens": outputTok,
 				},
-			})
-			writeSSEEvent(w, "message_stop", map[string]any{
+			}); err != nil {
+				return err
+			}
+			if err := writeSSEEvent(w, "message_stop", map[string]any{
 				"type": "message_stop",
-			})
+			}); err != nil {
+				return err
+			}
 			break
 		}
 	}
@@ -442,10 +514,10 @@ func TranslateOpenAISSEToAnthropic(r io.Reader, w io.Writer, state *StreamState)
 	return scanner.Err()
 }
 
-func writeSSEEvent(w io.Writer, eventType string, data any) {
+func writeSSEEvent(w io.Writer, eventType string, data any) error {
 	dataBytes, err := json.Marshal(data)
 	if err != nil {
-		return
+		return err
 	}
 	var buf bytes.Buffer
 	buf.WriteString("event: ")
@@ -454,10 +526,13 @@ func writeSSEEvent(w io.Writer, eventType string, data any) {
 	buf.Write(dataBytes)
 	buf.WriteString("\n\n")
 
-	_, _ = w.Write(buf.Bytes())
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		return err
+	}
 	if flusher, ok := w.(interface{ Flush() }); ok {
 		flusher.Flush()
 	}
+	return nil
 }
 
 // TranslateOpenAIJSONToAnthropic translates a non-streaming OpenAI chat completion to an Anthropic message

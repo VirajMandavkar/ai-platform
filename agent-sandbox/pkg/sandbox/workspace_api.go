@@ -12,9 +12,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var sessionIDRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
+
+func validateSessionID(sessionID string) bool {
+	return sessionIDRegex.MatchString(sessionID)
+}
 
 type FileNode struct {
 	Name     string      `json:"name"`
@@ -79,7 +86,17 @@ func HandleGetWorkspaceTree() http.HandlerFunc {
 		if sessionID == "" {
 			sessionID = "default-session"
 		}
+		if !validateSessionID(sessionID) {
+			http.Error(w, "Invalid session identifier", http.StatusBadRequest)
+			return
+		}
 		workspaceDir, _ := filepath.Abs(fmt.Sprintf("./workspaces/%s", sessionID))
+		if _, err := os.Stat(workspaceDir); os.IsNotExist(err) {
+			fallback, _ := filepath.Abs("./workspace")
+			if _, err := os.Stat(fallback); err == nil {
+				workspaceDir = fallback
+			}
+		}
 
 		tree, err := buildTree(workspaceDir, "")
 		if err != nil {
@@ -137,7 +154,17 @@ func HandleGetWorkspaceFile() http.HandlerFunc {
 		if sessionID == "" {
 			sessionID = "default-session"
 		}
+		if !validateSessionID(sessionID) {
+			http.Error(w, "Invalid session identifier", http.StatusBadRequest)
+			return
+		}
 		workspaceDir, _ := filepath.Abs(fmt.Sprintf("./workspaces/%s", sessionID))
+		if _, err := os.Stat(workspaceDir); os.IsNotExist(err) {
+			fallback, _ := filepath.Abs("./workspace")
+			if _, err := os.Stat(fallback); err == nil {
+				workspaceDir = fallback
+			}
+		}
 
 		if r.Method == http.MethodPost {
 			var payload struct {
@@ -149,14 +176,15 @@ func HandleGetWorkspaceFile() http.HandlerFunc {
 				http.Error(w, "Invalid JSON", http.StatusBadRequest)
 				return
 			}
-			if payload.Path == "" {
+			if payload.Path == "" || strings.Contains(payload.Path, "..") || filepath.IsAbs(payload.Path) {
 				http.Error(w, "Invalid path", http.StatusBadRequest)
 				return
 			}
-			fullPath := filepath.Clean(filepath.Join(workspaceDir, payload.Path))
+			cleanRel := filepath.Clean("/" + payload.Path)
+			fullPath := filepath.Join(workspaceDir, filepath.FromSlash(cleanRel))
 			absWorkspace, _ := filepath.Abs(workspaceDir)
 			absFull, _ := filepath.Abs(fullPath)
-			if !strings.HasPrefix(absFull, absWorkspace) {
+			if absFull != absWorkspace && !strings.HasPrefix(absFull, absWorkspace+string(filepath.Separator)) {
 				http.Error(w, "Invalid path", http.StatusBadRequest)
 				return
 			}
@@ -175,14 +203,15 @@ func HandleGetWorkspaceFile() http.HandlerFunc {
 		}
 
 		relPath := r.URL.Query().Get("path")
-		if relPath == "" {
+		if relPath == "" || strings.Contains(relPath, "..") || filepath.IsAbs(relPath) {
 			http.Error(w, "Invalid path", http.StatusBadRequest)
 			return
 		}
-		fullPath := filepath.Clean(filepath.Join(workspaceDir, relPath))
+		cleanRel := filepath.Clean("/" + relPath)
+		fullPath := filepath.Join(workspaceDir, filepath.FromSlash(cleanRel))
 		absWorkspace, _ := filepath.Abs(workspaceDir)
 		absFull, _ := filepath.Abs(fullPath)
-		if !strings.HasPrefix(absFull, absWorkspace) {
+		if absFull != absWorkspace && !strings.HasPrefix(absFull, absWorkspace+string(filepath.Separator)) {
 			http.Error(w, "Invalid path", http.StatusBadRequest)
 			return
 		}
@@ -214,7 +243,14 @@ func HandleRunVerification() http.HandlerFunc {
 		if sessionID == "" {
 			sessionID = "default-session"
 		}
+		if !validateSessionID(sessionID) {
+			http.Error(w, "Invalid session identifier", http.StatusBadRequest)
+			return
+		}
 		containerName := "ai-sandbox-" + sessionID
+		if mgr := GetDefaultManager(); mgr != nil {
+			containerName = mgr.GetContainerName(sessionID)
+		}
 
 		// Ensure the session workspace directory exists and is properly seeded with verify.sh
 		workspacePath, _ := filepath.Abs(fmt.Sprintf("./workspaces/%s", sessionID))
@@ -240,6 +276,9 @@ func HandleRunVerification() http.HandlerFunc {
 			status := "IN_PROGRESS"
 			if passed {
 				status = "COMPLETED"
+				if mgr := GetDefaultManager(); mgr != nil {
+					mgr.TerminateSession(sessionID)
+				}
 			}
 			_, _ = DB.Exec(`UPDATE interviews SET status = ? WHERE id = ?`, status, sessionID)
 		}
@@ -261,6 +300,10 @@ func HandleDownloadWorkspace() http.HandlerFunc {
 		sessionID := r.URL.Query().Get("sessionId")
 		if sessionID == "" {
 			sessionID = "default-session"
+		}
+		if !validateSessionID(sessionID) {
+			http.Error(w, "Invalid session identifier", http.StatusBadRequest)
+			return
 		}
 
 		workspacePath := fmt.Sprintf("./workspaces/%s", sessionID)
@@ -314,8 +357,8 @@ func HandleDownloadWorkspace() http.HandlerFunc {
 func HandleGetSessionConfig() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sessionID := r.URL.Query().Get("sessionId")
-		if sessionID == "" {
-			http.Error(w, "Missing sessionId", http.StatusBadRequest)
+		if sessionID == "" || !validateSessionID(sessionID) {
+			http.Error(w, "Invalid session identifier", http.StatusBadRequest)
 			return
 		}
 
@@ -364,8 +407,8 @@ func HandleSessionStart(w http.ResponseWriter, r *http.Request) {
 		sessionID = strings.TrimSpace(req.SessionID)
 	}
 
-	if sessionID == "" {
-		http.Error(w, "Missing sessionId parameter", http.StatusBadRequest)
+	if sessionID == "" || !validateSessionID(sessionID) {
+		http.Error(w, "Invalid session identifier", http.StatusBadRequest)
 		return
 	}
 
@@ -406,7 +449,7 @@ func HandleSessionStart(w http.ResponseWriter, r *http.Request) {
 
 	remainingSecs := durationMins * 60
 
-	if status == "INVITED" {
+	if status == "INVITED" || (status == "IN_PROGRESS" && !expiresAt.Valid) {
 		// Candidate entered fullscreen: Start timer NOW!
 		exp := time.Now().Add(time.Duration(durationMins) * time.Minute)
 		_, err := DB.Exec("UPDATE interviews SET status = 'IN_PROGRESS', expires_at = ? WHERE id = ?", exp, sessionID)
@@ -420,8 +463,10 @@ func HandleSessionStart(w http.ResponseWriter, r *http.Request) {
 			if rem <= 0 {
 				rem = 0
 				_, _ = DB.Exec("UPDATE interviews SET status = 'COMPLETED' WHERE id = ?", sessionID)
+				if mgr := GetDefaultManager(); mgr != nil {
+					mgr.TerminateSession(sessionID)
+				}
 			}
-			remainingSecs = rem
 		}
 	}
 

@@ -845,6 +845,12 @@
                     } else if (data.duration_mins) {
                         timeLeft = data.duration_mins * 60;
                     }
+                    updateTimerDisplay();
+                } else if (res.status === 403) {
+                    // Session is already completed or expired
+                    alert("This assessment session is already completed or expired. Redirecting to your scorecard...");
+                    window.location.href = `/scorecard.html?sessionId=${encodeURIComponent(activeToken)}`;
+                    return;
                 } else {
                     const cfgRes = await fetch(`/api/session/config?sessionId=${encodeURIComponent(activeToken)}`);
                     if (cfgRes.ok) {
@@ -852,6 +858,7 @@
                         if (data.remaining_sec !== undefined) {
                             timeLeft = data.remaining_sec;
                         }
+                        updateTimerDisplay();
                     }
                 }
             } catch (err) { console.error("Failed to start session timer", err); }
@@ -1048,17 +1055,24 @@
             if (terminal) terminal.focus();
         });
 
-        // 45-minute countdown timer
+        // Countdown timer
         let timeLeft = 45 * 60;
+        function updateTimerDisplay() {
+            const mins = Math.floor(Math.max(0, timeLeft) / 60).toString().padStart(2, '0');
+            const secs = (Math.max(0, timeLeft) % 60).toString().padStart(2, '0');
+            const el = document.getElementById('timer-display');
+            if (el) el.textContent = `${mins}:${secs}`;
+        }
+
         function startTimer() {
+            updateTimerDisplay();
             setInterval(() => {
                 if (timeLeft > 0) {
                     timeLeft--;
-                    const mins = Math.floor(timeLeft / 60).toString().padStart(2, '0');
-                    const secs = (timeLeft % 60).toString().padStart(2, '0');
-                    document.getElementById('timer-display').textContent = `${mins}:${secs}`;
+                    updateTimerDisplay();
                     if (timeLeft === 1) {
-                        document.getElementById('submit-solution-btn').click();
+                        const submitBtn = document.getElementById('submit-solution-btn');
+                        if (submitBtn) submitBtn.click();
                     }
                 }
             }, 1000);

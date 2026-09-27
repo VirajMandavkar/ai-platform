@@ -180,7 +180,11 @@ func main() {
 	logHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[HTTP] %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
-			r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+			limit := int64(1 << 20) // default 1MB for JSON payloads
+			if strings.HasPrefix(r.URL.Path, "/api/admin/scenarios/upload") {
+				limit = 50 << 20 // 50MB for scenario ZIP archives
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
 		}
 		http.DefaultServeMux.ServeHTTP(w, r)
 	})
