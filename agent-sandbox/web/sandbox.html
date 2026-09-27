@@ -975,7 +975,7 @@
                     const secs = (timeLeft % 60).toString().padStart(2, '0');
                     document.getElementById('timer-display').textContent = `${mins}:${secs}`;
                     if (timeLeft === 1) {
-                        window.location.href = `/api/workspace/verify?sessionId=${encodeURIComponent(activeToken)}`;
+                        document.getElementById('submit-solution-btn').click();
                     }
                 }
             }, 1000);
