@@ -28,7 +28,7 @@ func PromptCacheMiddleware(next http.Handler) http.Handler {
 				targetModel = os.Getenv("DEFAULT_MODEL")
 			}
 			if targetModel == "" {
-				targetModel = "qwen/qwen3.8-27b"
+				targetModel = "anthropic/claude-sonnet-5"
 			}
 
 			newBody, err := translator.TranslateAnthropicToOpenAI(bodyBytes, targetModel)

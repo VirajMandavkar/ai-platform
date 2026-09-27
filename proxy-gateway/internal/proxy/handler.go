@@ -62,7 +62,9 @@ func NewHandler(cfg Config) *Handler {
 			}
 
 			targetStr := cfg.TargetURL.String()
-			if strings.HasPrefix(apiKey, "gsk_") {
+			if strings.HasPrefix(apiKey, "sk-or-") {
+				targetStr = "https://openrouter.ai/api"
+			} else if strings.HasPrefix(apiKey, "gsk_") {
 				targetStr = "https://api.groq.com/openai"
 			} else if strings.HasPrefix(apiKey, "sk-ant") {
 				targetStr = "https://api.anthropic.com"
