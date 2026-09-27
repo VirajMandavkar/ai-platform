@@ -45,7 +45,7 @@ func PumpFromPTYToWebsocket(ctx context.Context, ptmx *os.File, ws *websocket.Co
 				}
 				return
 			}
-			if err := ws.WriteMessage(websocket.BinaryMessage, res.data); err != nil {
+			if err := ws.WriteMessage(websocket.TextMessage, res.data); err != nil {
 				log.Printf("WebSocket write error, breaking loop: %v", err)
 				return
 			}
