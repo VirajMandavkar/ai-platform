@@ -33,7 +33,10 @@
     <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-30 shadow-sm">
         <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-lg bg-brandBlue flex items-center justify-center text-white font-bold shadow-md shadow-blue-500/20">
-                <i data-lucide="terminal" class="w-4 h-4"></i>
+                <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="4 17 10 11 4 5"></polyline>
+                    <line x1="12" y1="19" x2="20" y2="19"></line>
+                </svg>
             </div>
             <div class="flex items-center gap-2">
                 <span class="font-extrabold text-slate-900 tracking-tight text-base">TriageHubs</span>
@@ -43,14 +46,20 @@
 
         <div class="flex items-center gap-4">
             <button onclick="openCreateModal()" class="px-4 py-2 bg-brandDark text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition shadow-sm flex items-center gap-2">
-                <i data-lucide="plus" class="w-4 h-4 text-emerald-400"></i>
+                <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
                 <span>Create Assessment</span>
             </button>
 
             <!-- Profile Dropdown Container -->
             <div class="relative">
-                <button id="profile-dropdown-btn" class="w-9 h-9 rounded-full bg-slate-800 hover:ring-2 hover:ring-blue-400 text-white font-bold text-xs flex items-center justify-center transition shadow-sm">
-                    <i data-lucide="user" class="w-4 h-4"></i>
+                <button id="profile-dropdown-btn" class="w-9 h-9 rounded-full bg-slate-800 hover:ring-2 hover:ring-blue-400 text-white font-bold text-xs flex items-center justify-center transition shadow-sm overflow-hidden" title="Account Profile">
+                    <svg class="w-4.5 h-4.5 text-slate-200 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
                 </button>
 
                 <!-- Profile Dropdown Card -->
@@ -463,6 +472,30 @@
     </div>
 
     <script>
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function renderIcons() {
+            try {
+                if (window.lucide && typeof lucide.createIcons === 'function') {
+                    lucide.createIcons();
+                }
+            } catch (e) {
+                console.warn("lucide error:", e);
+            }
+        }
+
+        // Render icons immediately on script load and DOM ready
+        renderIcons();
+        document.addEventListener('DOMContentLoaded', renderIcons);
+
         function showToast(msg) {
             const toast = document.getElementById('toast');
             document.getElementById('toast-text').textContent = msg;
@@ -693,7 +726,7 @@
                 document.getElementById('stat-in-progress').textContent = inProg;
                 document.getElementById('stat-completed').textContent = comp;
 
-                lucide.createIcons();
+                renderIcons();
             } catch (err) {
                 console.error("Error loading roster:", err);
             }
@@ -766,7 +799,7 @@
             const btn = document.getElementById('submit-create-btn');
             btn.disabled = true;
             btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Generating...';
-            lucide.createIcons();
+            renderIcons();
 
             const tier = document.querySelector('input[name="tier"]:checked').value;
             const scenario = document.getElementById('common-scenario').value;
@@ -832,7 +865,7 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-400"></i> Create & Generate Link';
-                lucide.createIcons();
+                renderIcons();
             }
         });
 
@@ -855,7 +888,7 @@
             const btn = document.getElementById('btn-save-scenario');
             btn.disabled = true;
             btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Provisioning...';
-            lucide.createIcons();
+            renderIcons();
 
             const fd = new FormData();
             fd.append('title', document.getElementById('scen-title').value.trim());
@@ -890,7 +923,7 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i data-lucide="upload" class="w-3.5 h-3.5"></i> <span>Upload & Provision</span>';
-                lucide.createIcons();
+                renderIcons();
             }
         });
 
