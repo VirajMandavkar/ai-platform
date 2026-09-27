@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | TriageHubs</title>
+    <title>Assessment Hub | TriageHubs</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     fontFamily: { 
-                        sans: ['Inter', 'sans-serif'],
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
                         mono: ['"JetBrains Mono"', 'monospace']
                     },
                     colors: {
@@ -25,151 +24,124 @@
         }
     </script>
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 flex h-screen overflow-hidden">
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
 
-    <!-- Minimal Left Sidebar (Clean, No Clutter) -->
-    <aside class="w-60 bg-brandDark text-white flex flex-col h-full border-r border-slate-800 shrink-0">
-        <!-- Logo -->
-        <div class="h-16 flex items-center px-6 border-b border-slate-800 justify-between">
-            <a href="/" class="flex items-center gap-2.5">
-                <div class="w-7 h-7 bg-brandBlue rounded-lg flex items-center justify-center text-white">
-                    <i data-lucide="terminal" class="w-4 h-4"></i>
-                </div>
-                <span class="font-bold text-lg tracking-tight">TriageHubs</span>
-            </a>
-            <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">LIVE</span>
-        </div>
-
-        <!-- Navigation -->
-        <nav class="flex-grow p-4 space-y-1.5">
-            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 px-3 mb-2">Workspace</div>
-            <button id="nav-btn-assessments" onclick="switchMainTab('assessments')" class="w-full flex items-center gap-3 px-3 py-2.5 bg-blue-600/10 text-brandBlue rounded-lg text-xs font-bold border border-blue-500/20 text-left transition">
-                <i data-lucide="layout-grid" class="w-4 h-4"></i> Assessments & Campaigns
-            </button>
-            <button id="nav-btn-platform" onclick="switchMainTab('platform')" class="hidden w-full flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg text-xs font-medium text-left transition">
-                <i data-lucide="shield-check" class="w-4 h-4 text-purple-400"></i> Platform Super Admin
-            </button>
-            <a href="/" target="_blank" class="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg text-xs font-medium transition">
-                <i data-lucide="external-link" class="w-4 h-4"></i> Public Homepage
-            </a>
-
-            <!-- Super Admin Maintenance -->
-            <div id="superadmin-tools" class="hidden pt-4 border-t border-slate-800 space-y-1">
-                <div class="text-[10px] font-bold uppercase tracking-wider text-purple-400 px-3 mb-1">Super Admin Actions</div>
-                <button onclick="confirmCleanDatabase()" class="w-full flex items-center gap-2.5 px-3 py-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-lg text-xs font-medium text-left transition">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i> Wipe Database
-                </button>
+    <!-- Top Sticky Header -->
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-30 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-brandBlue flex items-center justify-center text-white font-bold shadow-md shadow-blue-500/20">
+                <i data-lucide="terminal" class="w-4 h-4"></i>
             </div>
-        </nav>
-
-        <!-- Recruiter Profile Footer -->
-        <div class="p-4 border-t border-slate-800">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2.5 overflow-hidden">
-                    <div id="recruiter-avatar" class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs shrink-0 text-white">
-                        <i data-lucide="user" class="w-4 h-4"></i>
-                    </div>
-                    <div class="overflow-hidden">
-                        <div id="recruiter-name" class="text-xs font-bold truncate text-white">admin@triagehubs.com</div>
-                        <div id="recruiter-role" class="text-[10px] text-slate-400">Company Recruiter</div>
-                    </div>
-                </div>
-                <button id="logout-btn" title="Logout" class="text-slate-400 hover:text-red-400 transition p-1.5 rounded-lg hover:bg-slate-800">
-                    <i data-lucide="log-out" class="w-4 h-4"></i>
-                </button>
+            <div class="flex items-center gap-2">
+                <span class="font-extrabold text-slate-900 tracking-tight text-base">TriageHubs</span>
+                <span class="text-[10px] font-mono text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-bold border border-emerald-200">LIVE</span>
             </div>
         </div>
-    </aside>
 
-    <!-- Main Content Area -->
-    <main class="flex-grow flex flex-col h-full overflow-y-auto">
-        <!-- Top Sticky Header -->
-        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 sticky top-0 z-20">
+        <div class="flex items-center gap-4">
+            <button onclick="openCreateModal()" class="px-4 py-2 bg-brandDark text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition shadow-sm flex items-center gap-2">
+                <i data-lucide="plus" class="w-4 h-4 text-emerald-400"></i>
+                <span>Create Assessment</span>
+            </button>
+
+            <!-- Profile Dropdown Container -->
+            <div class="relative">
+                <button id="profile-dropdown-btn" class="w-9 h-9 rounded-full bg-slate-800 hover:ring-2 hover:ring-blue-400 text-white font-bold text-xs flex items-center justify-center transition shadow-sm">
+                    <i data-lucide="user" class="w-4 h-4"></i>
+                </button>
+
+                <!-- Profile Dropdown Card -->
+                <div id="profile-card" class="hidden absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 text-left">
+                    <div class="px-3 py-2 border-b border-slate-100">
+                        <div id="dropdown-username" class="text-xs font-bold text-slate-900 truncate">Loading...</div>
+                        <div id="dropdown-role" class="text-[10px] text-slate-500 font-semibold uppercase mt-0.5">Recruiter</div>
+                    </div>
+                    <div class="py-1">
+                        <a id="dropdown-superadmin-link" href="/superadmin.html" class="hidden w-full flex items-center gap-2.5 px-3 py-2 text-xs text-purple-700 hover:bg-purple-50 rounded-lg transition font-medium">
+                            <i data-lucide="shield" class="w-4 h-4 text-purple-600"></i>
+                            <span>Super Admin Console</span>
+                        </a>
+                        <button onclick="openLogoutModal()" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-lg transition font-medium">
+                            <i data-lucide="log-out" class="w-4 h-4 text-rose-500"></i>
+                            <span>Sign Out</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area (Full Width) -->
+    <main class="flex-grow p-8 max-w-7xl mx-auto w-full space-y-6">
+
+        <!-- Page Subtitle & Stats Header -->
+        <div class="flex items-center justify-between">
             <div>
-                <h1 id="page-header-title" class="text-base font-bold text-slate-900">Assessment Hub</h1>
-                <p id="page-header-subtitle" class="text-xs text-slate-500">Manage individual candidate sessions and high-concurrency mass campaigns</p>
+                <h1 class="text-xl font-black text-slate-900 tracking-tight">Assessment Hub</h1>
+                <p class="text-xs text-slate-500 mt-0.5">Manage individual proctored candidate sessions and high-concurrency mass campaigns</p>
             </div>
-            
-            <div class="flex items-center gap-3">
-                <button onclick="openInviteModal()" class="px-3.5 py-2 border border-slate-300 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-lg hover:bg-slate-50 transition shadow-sm flex items-center gap-2">
-                    <i data-lucide="key" class="w-3.5 h-3.5 text-brandBlue"></i> Generate Company Invite
-                </button>
-                <button onclick="openCreateModal()" class="px-4 py-2 bg-brandDark text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition shadow-sm flex items-center gap-2">
-                    <i data-lucide="plus" class="w-4 h-4 text-emerald-400"></i> Create Assessment
-                </button>
-            </div>
-        </header>
+            <button onclick="loadAll()" class="px-3.5 py-2 border border-slate-300 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-lg hover:bg-slate-50 transition shadow-sm flex items-center gap-1.5">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+            </button>
+        </div>
 
-        <!-- Body Dashboard View -->
-        <div class="p-8 space-y-6 max-w-7xl mx-auto w-full">
-            <!-- Global Alert / Toast -->
-            <div id="toast-banner" class="hidden p-4 rounded-xl text-xs font-medium flex items-center justify-between transition-all">
-                <span id="toast-text"></span>
-                <button onclick="document.getElementById('toast-banner').classList.add('hidden')" class="text-slate-500 hover:text-slate-800 ml-4">✕</button>
+        <!-- Focused Metrics 4-Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                <div class="text-xs font-medium text-slate-500 mb-1">Active Campaigns</div>
+                <div id="stat-campaigns" class="text-2xl font-black text-purple-600">0</div>
+                <div class="text-[11px] text-slate-400 mt-1">Multi-seat cohorts</div>
             </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                <div class="text-xs font-medium text-slate-500 mb-1">Single Sessions</div>
+                <div id="stat-single" class="text-2xl font-black text-brandBlue">0</div>
+                <div class="text-[11px] text-slate-400 mt-1">Individual magic links</div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                <div class="text-xs font-medium text-slate-500 mb-1">In Sandbox</div>
+                <div id="stat-in-progress" class="text-2xl font-black text-amber-500">0</div>
+                <div class="text-[11px] text-slate-400 mt-1">Live active coding</div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                <div class="text-xs font-medium text-slate-500 mb-1">Completed Evaluations</div>
+                <div id="stat-completed" class="text-2xl font-black text-emerald-600">0</div>
+                <div class="text-[11px] text-slate-400 mt-1">Verified solutions</div>
+            </div>
+        </div>
 
-            <!-- VIEW 1: Assessments & Campaigns -->
-            <div id="view-assessments" class="space-y-6">
-                <!-- Focused Metrics -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
-                <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <div class="text-xs font-medium text-slate-500 mb-1">Active Campaigns</div>
-                    <div id="stat-campaigns" class="text-2xl font-black text-purple-600">0</div>
-                    <div class="text-[11px] text-slate-400 mt-1">Multi-seat cohorts</div>
-                </div>
-                <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <div class="text-xs font-medium text-slate-500 mb-1">Single Sessions</div>
-                    <div id="stat-single" class="text-2xl font-black text-brandBlue">0</div>
-                    <div class="text-[11px] text-slate-400 mt-1">Individual magic links</div>
-                </div>
-                <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <div class="text-xs font-medium text-slate-500 mb-1">In Sandbox</div>
-                    <div id="stat-in-progress" class="text-2xl font-black text-amber-500">0</div>
-                    <div class="text-[11px] text-slate-400 mt-1">Live active coding</div>
-                </div>
-                <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <div class="text-xs font-medium text-slate-500 mb-1">Completed Evaluations</div>
-                    <div id="stat-completed" class="text-2xl font-black text-emerald-600">0</div>
-                    <div class="text-[11px] text-slate-400 mt-1">Verified solutions</div>
+        <!-- Unified Assessment Roster -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+                <div>
+                    <h2 class="font-bold text-sm text-slate-900">Active Sessions & Campaigns</h2>
+                    <p class="text-xs text-slate-500">Click any candidate invite link to copy, or click the menu button (⋮) to view the full session scorecard and telemetry</p>
                 </div>
             </div>
 
-            <!-- Unified Assessment Roster -->
-            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
-                    <div>
-                        <h2 class="font-bold text-sm text-slate-900">Active Sessions & Campaigns</h2>
-                        <p class="text-xs text-slate-500">Candidates access their isolated environment directly via their tokenized link</p>
-                    </div>
-                    <button onclick="loadAll()" class="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 font-medium transition">
-                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
-                    </button>
-                </div>
-
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500">
-                                <th class="px-6 py-3 font-bold">Type</th>
-                                <th class="px-6 py-3 font-bold">Assessment / Candidate</th>
-                                <th class="px-6 py-3 font-bold">Seats / Scale</th>
-                                <th class="px-6 py-3 font-bold">Scenario Track</th>
-                                <th class="px-6 py-3 font-bold">Status</th>
-                                <th class="px-6 py-3 font-bold text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="assessments-tbody" class="divide-y divide-slate-100 text-xs">
-                            <tr>
-                                <td colspan="6" class="px-6 py-12 text-center text-slate-400">
-                                    Loading assessments...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500">
+                            <th class="px-6 py-3 font-bold">Type</th>
+                            <th class="px-6 py-3 font-bold">Assessment / Candidate</th>
+                            <th class="px-6 py-3 font-bold">Seats / Scale</th>
+                            <th class="px-6 py-3 font-bold">Scenario Track</th>
+                            <th class="px-6 py-3 font-bold">Status</th>
+                            <th class="px-6 py-3 font-bold">Invite Link</th>
+                            <th class="px-6 py-3 font-bold text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assessments-tbody" class="divide-y divide-slate-100 text-xs">
+                        <tr>
+                            <td colspan="7" class="px-6 py-12 text-center text-slate-400">
+                                Loading assessments...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </main>
@@ -257,6 +229,11 @@
                                    class="w-full px-3 py-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-brandBlue">
                         </div>
                     </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Scheduled Date & Time (Optional)</label>
+                        <input type="datetime-local" id="single-scheduled" class="w-full px-3 py-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-brandBlue">
+                        <p class="text-[10px] text-slate-400 mt-0.5">Candidate must enter within 5 minutes of scheduled time</p>
+                    </div>
                     <!-- Single BYOK Key field (hidden when Managed AI) -->
                     <div id="single-byok-box" class="hidden">
                         <label class="block text-xs font-semibold text-slate-700 mb-1">Anthropic API Key (BYOK)</label>
@@ -279,7 +256,7 @@
                                class="w-full px-3 py-2 border rounded-lg text-xs font-mono outline-none focus:ring-2 focus:ring-brandBlue">
                     </div>
 
-                    <!-- Campaign BYOK Math & Capacity Box (Strictly Hidden for Managed AI $40) -->
+                    <!-- Campaign BYOK Math & Capacity Box -->
                     <div id="camp-byok-math-box" class="hidden p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
@@ -321,17 +298,25 @@
                 </div>
 
                 <!-- Scenario Selection -->
-                <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Scenario Track</label>
-                        <select id="common-scenario" class="w-full px-3 py-2 border rounded-lg text-xs bg-white">
-                            <option value="payments-triage">Payments Triage (Rate Limiter Race)</option>
-                            <option value="proxy-gateway-ssrf">Proxy Gateway (Security & SSRF)</option>
-                        </select>
+                <div class="space-y-3 pt-2 border-t border-slate-100">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-bold text-slate-700">3. Scenario & Workspace</label>
+                        <button type="button" onclick="openUploadScenarioModal()" class="text-brandBlue hover:text-blue-700 font-bold text-xs flex items-center gap-1">
+                            <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
+                            <span>+ Upload Custom Scenario (ZIP)</span>
+                        </button>
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">Session Duration (Mins)</label>
-                        <input type="number" id="common-duration" class="w-full px-3 py-2 border rounded-lg text-xs bg-white" value="45" min="1" max="300" placeholder="e.g. 45" />
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] text-slate-500 mb-1">Selected Scenario Track</label>
+                            <select id="common-scenario" class="w-full px-3 py-2 border rounded-lg text-xs bg-white">
+                                <option value="payments-triage">Payments Triage (Rate Limiter Race)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-500 mb-1">Session Duration (Mins)</label>
+                            <input type="number" id="common-duration" class="w-full px-3 py-2 border rounded-lg text-xs bg-white" value="45" min="1" max="300" placeholder="e.g. 45" />
+                        </div>
                     </div>
                 </div>
 
@@ -358,212 +343,96 @@
                 </div>
                 <div class="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 mb-3">
                     <input type="text" id="result-link-input" readonly class="text-xs font-mono text-slate-700 bg-transparent flex-grow outline-none truncate">
-                    <button id="modal-copy-btn" class="px-3 py-1 bg-brandBlue text-white rounded text-[11px] font-bold hover:bg-blue-600 transition shrink-0">
-                        Copy Link
+                    <button type="button" onclick="copyResultLink()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 font-semibold text-xs transition">
+                        Copy
                     </button>
                 </div>
-                <div class="flex items-center justify-between text-[11px]">
-                    <span class="text-slate-500">Candidate must verify their name & email to enter.</span>
-                    <a id="result-open-link" href="#" target="_blank" class="text-brandBlue font-bold hover:underline flex items-center gap-1">
-                        Test Link in Candidate Mode <i data-lucide="external-link" class="w-3 h-3"></i>
+                <div class="flex justify-end gap-2">
+                    <a id="result-test-entry" href="#" target="_blank" class="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-xs font-bold transition flex items-center gap-1">
+                        Test Entry <i data-lucide="external-link" class="w-3 h-3"></i>
                     </a>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Candidate Scorecard Modal -->
-    <div id="scorecard-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 overflow-y-auto max-h-[90vh]">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="award" class="w-5 h-5 text-brandBlue"></i>
-                    <div>
-                        <h3 class="font-bold text-base text-slate-900">Executive Candidate Scorecard</h3>
-                        <p class="text-[11px] text-slate-500">Evaluated on real-world AI engineering behavior & foundational debugging</p>
-                    </div>
+    <!-- Custom Scenario Upload Modal (Option C+) -->
+    <div id="upload-scenario-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-7 shadow-2xl border border-slate-200 relative max-h-[90vh] overflow-y-auto space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                    <h3 class="font-extrabold text-base text-slate-900">Upload & Configure Custom Scenario</h3>
+                    <p class="text-xs text-slate-500">Provide problem description cards and upload starter workspace code ZIP</p>
                 </div>
-                <button onclick="document.getElementById('scorecard-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-700">✕</button>
+                <button onclick="closeUploadScenarioModal()" class="text-slate-400 hover:text-slate-700">✕</button>
             </div>
-            
-            <div id="scorecard-content" class="space-y-4">
-                <!-- Loaded dynamically -->
-            </div>
-        </div>
-    </div>
 
-    <!-- The "God Mode" Timeline Playback Modal -->
-    <div id="godmode-modal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 rounded-2xl max-w-6xl w-full border border-slate-800 shadow-2xl flex flex-col h-[90vh] overflow-hidden text-white">
-            <!-- Header -->
-            <div class="h-14 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-6 shrink-0">
-                <div class="flex items-center gap-3">
-                    <div class="w-7 h-7 rounded-lg bg-purple-600/20 border border-purple-500/40 text-purple-400 flex items-center justify-center font-black text-xs">
-                        ⚡
+            <form id="scenario-upload-form" class="space-y-4 text-xs">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Scenario Title *</label>
+                        <input type="text" id="scen-title" required placeholder="e.g. Distributed Consensus Bug" class="w-full px-3 py-2 border rounded-lg">
                     </div>
                     <div>
-                        <div class="flex items-center gap-2">
-                            <span class="font-bold text-sm text-white">God Mode Timeline Playback</span>
-                            <span id="godmode-phase-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Phase 2: The Brick Wall</span>
-                        </div>
-                        <div class="text-[11px] text-slate-400">
-                            Candidate: <span id="godmode-candidate-name" class="text-white font-medium">Alex Rivera</span> • 
-                            Session: <span id="godmode-session-id" class="font-mono text-purple-400">cand_demo_1</span>
-                        </div>
+                        <label class="block font-semibold text-slate-700 mb-1">Track / Role *</label>
+                        <input type="text" id="scen-track" required placeholder="e.g. Senior Backend (Go)" class="w-full px-3 py-2 border rounded-lg">
                     </div>
                 </div>
 
-                <div class="flex items-center gap-3">
-                    <div class="text-xs font-mono text-slate-400 bg-slate-900 px-3 py-1.5 rounded border border-slate-800">
-                        Timestamp: <span id="godmode-time-display" class="text-emerald-400 font-bold">11:40</span> / 25:00
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Language / Runtime</label>
+                        <select id="scen-lang" class="w-full px-3 py-2 border rounded-lg bg-white">
+                            <option value="go">Go</option>
+                            <option value="python">Python</option>
+                            <option value="node">Node.js</option>
+                            <option value="rust">Rust</option>
+                        </select>
                     </div>
-                    <button onclick="document.getElementById('godmode-modal').classList.add('hidden')" class="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition">✕</button>
-                </div>
-            </div>
-
-            <!-- 3 Synced Panels -->
-            <div class="flex-grow grid grid-cols-3 divide-x divide-slate-800 overflow-hidden bg-slate-950">
-                <!-- Left Panel: AI Chat & Prompt History -->
-                <div class="flex flex-col overflow-hidden">
-                    <div class="h-9 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between text-xs font-semibold text-slate-300">
-                        <span class="flex items-center gap-1.5"><i data-lucide="message-square" class="w-3.5 h-3.5 text-blue-400"></i> Left Panel: AI Prompt Stream</span>
-                        <span class="text-[10px] font-mono text-slate-500">Claude Code</span>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Duration (Mins)</label>
+                        <input type="number" id="scen-duration" value="45" min="1" max="180" class="w-full px-3 py-2 border rounded-lg">
                     </div>
-                    <div id="godmode-chat-container" class="flex-grow p-4 overflow-y-auto space-y-4 text-xs font-sans">
-                        <!-- Loaded dynamically -->
-                    </div>
-                </div>
-
-                <!-- Middle Panel: Codebase State & Diff -->
-                <div class="flex flex-col overflow-hidden">
-                    <div class="h-9 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between text-xs font-semibold text-slate-300">
-                        <span class="flex items-center gap-1.5"><i data-lucide="code" class="w-3.5 h-3.5 text-amber-400"></i> Middle Panel: Code Snapshot & Diff</span>
-                        <span id="godmode-file-path" class="text-[10px] font-mono text-slate-400">internal/limiter/bucket.go</span>
-                    </div>
-                    <pre id="godmode-code-container" class="flex-grow p-4 overflow-auto font-mono text-xs text-slate-200 bg-black/60 leading-relaxed whitespace-pre"></pre>
-                </div>
-
-                <!-- Right Panel: Terminal Output & Tests -->
-                <div class="flex flex-col overflow-hidden">
-                    <div class="h-9 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between text-xs font-semibold text-slate-300">
-                        <span class="flex items-center gap-1.5"><i data-lucide="terminal" class="w-3.5 h-3.5 text-emerald-400"></i> Right Panel: Terminal & Tests</span>
-                        <span class="text-[10px] font-mono text-slate-500">pty stream</span>
-                    </div>
-                    <pre id="godmode-term-container" class="flex-grow p-4 overflow-auto font-mono text-xs text-emerald-300 bg-black leading-relaxed whitespace-pre"></pre>
-                </div>
-            </div>
-
-            <!-- Bottom YouTube-Style Color-Coded Timeline Scrubber -->
-            <div class="h-24 bg-slate-950 border-t border-slate-800 p-3 flex flex-col justify-between shrink-0">
-                <div class="flex items-center justify-between text-[11px] font-mono text-slate-400 mb-1 px-1">
-                    <div class="flex items-center gap-4">
-                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> 🟩 AI Scaffolding</span>
-                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> 🟥 Tests Failing / The Struggle</span>
-                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> 🟨 Candidate Took Wheel (Manual Edit)</span>
-                    </div>
-                    <div id="godmode-checkpoint-title" class="font-bold text-white">
-                        Phase 2: The Brick Wall - Race Condition Detected
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Verification Command</label>
+                        <input type="text" id="scen-verify" value="bash verify.sh" class="w-full px-3 py-2 border rounded-lg font-mono">
                     </div>
                 </div>
 
-                <!-- Color-Coded Segments Progress Bar -->
-                <div id="godmode-scrubber-container" class="grid gap-1.5 h-8 bg-slate-900 rounded-lg p-1 border border-slate-800" style="grid-template-columns: repeat(1, minmax(0, 1fr));">
-                    <!-- Loaded dynamically -->
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Problem Statement / Context Card *</label>
+                    <textarea id="scen-context" rows="2" required placeholder="Explain the incident or scenario..." class="w-full px-3 py-2 border rounded-lg"></textarea>
                 </div>
-            </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Architecture Card (Summary)</label>
+                        <textarea id="scen-arch" rows="2" placeholder="System topology and data flow..." class="w-full px-3 py-2 border rounded-lg"></textarea>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Engineering Constraints</label>
+                        <textarea id="scen-constraints" rows="2" placeholder="Preserve method signatures, zero race conditions..." class="w-full px-3 py-2 border rounded-lg"></textarea>
+                    </div>
+                </div>
+
+                <!-- ZIP Upload Field -->
+                <div class="p-4 border-2 border-dashed border-slate-300 rounded-xl text-center hover:border-blue-500 transition">
+                    <i data-lucide="folder-archive" class="w-8 h-8 text-slate-400 mx-auto mb-1"></i>
+                    <div class="font-bold text-slate-700 text-xs">Workspace Starter Code (.zip)</div>
+                    <p class="text-[11px] text-slate-400 mb-2">Must contain starter codebase and verify.sh test runner</p>
+                    <input type="file" id="scen-zip" accept=".zip" class="text-xs text-slate-500 mx-auto">
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeUploadScenarioModal()" class="px-4 py-2 border rounded-lg hover:bg-slate-50">Cancel</button>
+                    <button type="submit" id="btn-save-scenario" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                        <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                        <span>Upload & Provision</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
-    <!-- End VIEW 1: Assessments & Campaigns -->
-
-    <!-- VIEW 2: Platform Super Admin Overview -->
-    <div id="view-platform" class="hidden space-y-6">
-        <!-- Platform Metrics Header -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
-            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                <div class="text-xs font-medium text-slate-500 mb-1">Inbound Pilot Leads</div>
-                <div id="platform-stat-pilots" class="text-2xl font-black text-amber-500">0</div>
-                <div class="text-[11px] text-slate-400 mt-1">Enterprise requests awaiting review</div>
-            </div>
-            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                <div class="text-xs font-medium text-slate-500 mb-1">Registered Organizations</div>
-                <div id="platform-stat-recruiters" class="text-2xl font-black text-purple-600">0</div>
-                <div class="text-[11px] text-slate-400 mt-1">Active recruiter company tenants</div>
-            </div>
-            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                <div class="text-xs font-medium text-slate-500 mb-1">Total Candidate Sessions</div>
-                <div id="platform-stat-interviews" class="text-2xl font-black text-brandBlue">0</div>
-                <div class="text-[11px] text-slate-400 mt-1">Single proctored assessments</div>
-            </div>
-            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                <div class="text-xs font-medium text-slate-500 mb-1">Active Mass Cohorts</div>
-                <div id="platform-stat-cohorts" class="text-2xl font-black text-emerald-600">0</div>
-                <div class="text-[11px] text-slate-400 mt-1">High-concurrency test campaigns</div>
-            </div>
-        </div>
-
-        <!-- Inbound Pilot Requests Table -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-                        <h2 class="font-bold text-sm text-slate-900">Enterprise Pilot Leads & Requests</h2>
-                    </div>
-                    <p class="text-xs text-slate-500">Inbound corporate inquiries requesting private workspace access</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button onclick="loadPlatformOverview()" class="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 font-medium transition">
-                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Leads
-                    </button>
-                </div>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50/80">
-                            <th class="px-6 py-3">Company / Org</th>
-                            <th class="px-6 py-3">Contact</th>
-                            <th class="px-6 py-3">Hiring Volume</th>
-                            <th class="px-6 py-3">Evaluation Scope</th>
-                            <th class="px-6 py-3">Received</th>
-                            <th class="px-6 py-3 text-right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="platform-pilots-tbody">
-                        <tr>
-                            <td colspan="6" class="px-6 py-8 text-center text-slate-400 text-xs">
-                                Loading enterprise leads...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Platform Database & Infrastructure Controls -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <i data-lucide="database" class="w-4 h-4 text-purple-600"></i> Supabase Infrastructure & Database Hygiene
-                    </h3>
-                    <p class="text-xs text-slate-500 mt-1 max-w-xl">
-                        Connected to Supabase PostgreSQL with AES-256-GCM encrypted API keys and real-time live replication. Clean database wipes all test candidate sessions while preserving super admin authority.
-                    </p>
-                </div>
-                <div class="flex items-center gap-3 shrink-0">
-                    <button onclick="openInviteModal()" class="px-4 py-2 border border-slate-300 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-lg hover:bg-slate-50 transition shadow-sm flex items-center gap-1.5">
-                        <i data-lucide="key" class="w-3.5 h-3.5 text-brandBlue"></i> Issue Invite Code
-                    </button>
-                    <button onclick="confirmCleanDatabase()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition shadow flex items-center gap-1.5">
-                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Wipe Database
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- End VIEW 2: Platform Super Admin Overview -->
 
     <!-- Sign Out Confirmation Modal -->
     <div id="logout-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
@@ -574,273 +443,114 @@
             <div>
                 <h3 class="text-base font-bold text-slate-900">Sign Out Confirmation</h3>
                 <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                    Are you sure you want to end your recruiter session? You can return to the homepage or sign back in anytime.
+                    Are you sure you want to end your recruiter session?
                 </p>
             </div>
             <div class="flex items-center gap-3 pt-2">
-                <button type="button" onclick="closeLogoutModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition">
+                <button onclick="closeLogoutModal()" class="flex-1 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
                     Cancel
                 </button>
-                <button type="button" id="confirm-logout-btn" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-rose-200">
-                    Yes, Sign Out
+                <button onclick="executeLogout()" class="flex-1 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition shadow-sm">
+                    Sign Out
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Company Invite Generator Modal (B2B Option A) -->
-    <div id="invite-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-brandBlue flex items-center justify-center">
-                        <i data-lucide="key" class="w-4 h-4"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-sm font-bold text-slate-900">Generate Company Activation Invite</h3>
-                        <p class="text-[11px] text-slate-500">Option A Private B2B Onboarding Token</p>
-                    </div>
-                </div>
-                <button type="button" onclick="closeInviteModal()" class="text-slate-400 hover:text-slate-600">✕</button>
-            </div>
-
-            <!-- Form -->
-            <form id="generate-invite-form" class="space-y-3">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Company / Organization Name</label>
-                    <input type="text" id="inv-company-name" required placeholder="e.g. Stripe, Acme Corp" 
-                           class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brandBlue">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Authorized Administrator Email</label>
-                    <input type="email" id="inv-email" required placeholder="e.g. recruiting-lead@company.com" 
-                           class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brandBlue">
-                </div>
-                <button type="submit" id="btn-generate-invite" class="w-full py-2.5 bg-brandDark text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition flex items-center justify-center gap-1.5 shadow-sm">
-                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i> Generate Activation Link
-                </button>
-            </form>
-
-            <!-- Result Box -->
-            <div id="invite-result-box" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-3.5 space-y-2">
-                <div class="flex items-center justify-between text-xs font-semibold text-blue-900">
-                    <span class="flex items-center gap-1"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> Activation Link Ready</span>
-                    <span id="invite-result-company" class="font-mono text-[10px] text-blue-700"></span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <input type="text" id="invite-result-link" readonly 
-                           class="flex-grow px-2.5 py-1.5 bg-white border border-blue-200 rounded text-xs font-mono text-slate-800 select-all">
-                    <button type="button" onclick="copyInviteResultLink()" class="px-3 py-1.5 bg-brandBlue hover:bg-blue-600 text-white rounded text-xs font-semibold flex items-center gap-1 shrink-0">
-                        <i data-lucide="copy" class="w-3 h-3"></i> Copy
-                    </button>
-                </div>
-            </div>
-
-            <!-- Existing Invites List -->
-            <div class="pt-3 border-t border-slate-100">
-                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
-                    <span>Recent Enterprise Invites</span>
-                    <button type="button" onclick="loadInvites()" class="hover:text-slate-600"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
-                </div>
-                <div id="invites-list-container" class="max-h-40 overflow-y-auto space-y-1.5 text-xs">
-                    <div class="text-slate-400 text-center py-2">Loading invites...</div>
-                </div>
-            </div>
-        </div>
+    <!-- Toast Banner -->
+    <div id="toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 z-50">
+        <span id="toast-text"></span>
     </div>
 
     <script>
-        if (window.lucide && typeof lucide.createIcons === 'function') {
-            try { lucide.createIcons(); } catch(e) {}
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-text').textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
         }
 
-        let currentType = 'single'; // 'single' or 'campaign'
-
-        function showToast(text, isError = false) {
-            const banner = document.getElementById('toast-banner');
-            banner.className = `p-4 rounded-xl text-xs font-medium flex items-center justify-between ${isError ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`;
-            document.getElementById('toast-text').textContent = text;
-            banner.classList.remove('hidden');
-            setTimeout(() => banner.classList.add('hidden'), 5000);
+        function copyText(txt) {
+            if (!txt) return;
+            navigator.clipboard.writeText(txt);
+            showToast('Copied link to clipboard');
         }
 
-        function openCreateModal() {
-            document.getElementById('modal-link-result').classList.add('hidden');
-            document.getElementById('create-form').reset();
-            selectType('single');
-            document.getElementById('create-modal').classList.remove('hidden');
+        function formatRelativeTime(dateStr) {
+            if (!dateStr) return 'just now';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffSec = Math.floor(diffMs / 1000);
+            if (diffSec < 60) return 'just now';
+            const diffMin = Math.floor(diffSec / 60);
+            if (diffMin < 60) return `${diffMin}m ago`;
+            const diffHr = Math.floor(diffMin / 60);
+            if (diffHr < 24) return `${diffHr}h ago`;
+            return `${Math.floor(diffHr / 24)}d ago`;
         }
 
-        function closeCreateModal() {
-            document.getElementById('create-modal').classList.add('hidden');
-        }
-
-        function selectType(type) {
-            currentType = type;
-            const singleOpt = document.getElementById('type-opt-single');
-            const campOpt = document.getElementById('type-opt-campaign');
-            const singleFields = document.getElementById('fields-single');
-            const campFields = document.getElementById('fields-campaign');
-
-            if (type === 'single') {
-                singleOpt.className = "p-4 rounded-xl border-2 border-brandBlue bg-blue-50/40 cursor-pointer transition flex flex-col justify-between";
-                singleOpt.querySelector('span:last-child').className = "w-2 h-2 rounded-full bg-brandBlue";
-                campOpt.className = "p-4 rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white cursor-pointer transition flex flex-col justify-between";
-                campOpt.querySelector('span:last-child').className = "w-2 h-2 rounded-full bg-slate-300";
-                singleFields.classList.remove('hidden');
-                campFields.classList.add('hidden');
-            } else {
-                campOpt.className = "p-4 rounded-xl border-2 border-purple-600 bg-purple-50/40 cursor-pointer transition flex flex-col justify-between";
-                campOpt.querySelector('span:last-child').className = "w-2 h-2 rounded-full bg-purple-600";
-                singleOpt.className = "p-4 rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white cursor-pointer transition flex flex-col justify-between";
-                singleOpt.querySelector('span:last-child').className = "w-2 h-2 rounded-full bg-slate-300";
-                campFields.classList.remove('hidden');
-                singleFields.classList.add('hidden');
-            }
-            updateTierLogic();
-            if (window.lucide) lucide.createIcons();
-        }
-
-        function updateTierLogic() {
-            const tier = document.querySelector('input[name="tier"]:checked').value;
-            const singleByokBox = document.getElementById('single-byok-box');
-            const campByokBox = document.getElementById('camp-byok-math-box');
-
-            if (tier === 'managed') {
-                singleByokBox.classList.add('hidden');
-                campByokBox.classList.add('hidden');
-            } else {
-                if (currentType === 'single') {
-                    singleByokBox.classList.remove('hidden');
-                    campByokBox.classList.add('hidden');
-                } else {
-                    campByokBox.classList.remove('hidden');
-                    singleByokBox.classList.add('hidden');
-                    recalcCampaignMath();
-                }
-            }
-            recalcTotalDisplay();
-        }
-
-        function recalcCampaignMath() {
-            const count = parseInt(document.getElementById('camp-candidate-count').value, 10) || 10;
-            const safety = parseFloat(document.getElementById('camp-safety-factor').value) || 1.5;
-            const reqTPM = Math.floor(count * 10000 * safety);
-            document.getElementById('camp-required-tpm').textContent = reqTPM.toLocaleString() + ' TPM';
-
-            // Keys needed assuming standard 2,000,000 TPM limit per key
-            const keysNeeded = Math.max(1, Math.ceil(reqTPM / 2000000));
-            document.getElementById('camp-keys-needed-count').textContent = `${keysNeeded} Key${keysNeeded > 1 ? 's' : ''}`;
-
-            const additionalContainer = document.getElementById('camp-additional-keys');
-            additionalContainer.innerHTML = '';
-            for (let i = 2; i <= keysNeeded; i++) {
-                const inp = document.createElement('input');
-                inp.type = 'password';
-                inp.placeholder = `Anthropic API Key ${i} (Pool expansion)`;
-                inp.className = 'w-full px-3 py-2 border rounded-lg text-xs font-mono bg-white';
-                additionalContainer.appendChild(inp);
-            }
-            recalcTotalDisplay();
-        }
-
-        function recalcTotalDisplay() {
-            const tier = document.querySelector('input[name="tier"]:checked').value;
-            const rate = tier === 'managed' ? 40 : 25;
-            let count = 1;
-            if (currentType === 'campaign') {
-                count = parseInt(document.getElementById('camp-candidate-count').value, 10) || 10;
-            }
-            const total = count * rate;
-            document.getElementById('price-summary-tag').textContent = `$${total.toLocaleString()} Total (${count} × $${rate})`;
-            document.getElementById('final-price-display').textContent = `$${total.toLocaleString()}`;
-        }
-
-        // Form Submit
-        document.getElementById('create-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const tier = document.querySelector('input[name="tier"]:checked').value;
-            const scenarioId = document.getElementById('common-scenario').value;
-            const scenarioTitle = document.getElementById('common-scenario').options[document.getElementById('common-scenario').selectedIndex].text;
-            const duration = parseInt(document.getElementById('common-duration').value, 10);
-
-            if (currentType === 'single') {
-                const name = document.getElementById('single-name').value.trim();
-                const email = document.getElementById('single-email').value.trim();
-                const apiKey = tier === 'byok' ? document.getElementById('single-api-key').value.trim() : '';
-
-                if (!name || !email) {
-                    showToast("Candidate name and email are required.", true);
-                    return;
-                }
-
-                try {
-                    const res = await fetch('/api/admin/interviews', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            candidate_name: name,
-                            candidate_email: email,
-                            scenario_id: scenarioId,
-                            scenario_title: scenarioTitle,
-                            duration_mins: duration,
-                            api_key: apiKey,
-                            target_provider: tier
-                        })
-                    });
-                    const data = await res.json();
-                    showGeneratedLink(data.invite_url);
-                    showToast(`Single Session created for ${name}`);
-                    loadAll();
-                } catch (err) {
-                    showToast("Error creating interview: " + err.message, true);
-                }
-            } else {
-                // Campaign
-                const title = document.getElementById('camp-title').value.trim() || "Batch Campaign";
-                const count = parseInt(document.getElementById('camp-candidate-count').value, 10) || 10;
-                const emailsText = document.getElementById('camp-emails').value;
-                const emails = emailsText.split('\n').map(s => s.trim()).filter(Boolean);
-                const apiKey = tier === 'byok' ? document.getElementById('camp-api-key-1').value.trim() : '';
-                const safety = parseFloat(document.getElementById('camp-safety-factor').value) || 1.5;
-
-                try {
-                    const res = await fetch('/api/admin/cohorts', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            title: title,
-                            scenario_id: scenarioId,
-                            api_key: apiKey,
-                            duration_mins: duration,
-                            safe_capacity_seats: Math.floor(count * safety),
-                            candidate_emails: emails
-                        })
-                    });
-                    const data = await res.json();
-                    showGeneratedLink(data.cohort_url);
-                    showToast(`Campaign "${title}" created for ${count} candidates`);
-                    loadAll();
-                } catch (err) {
-                    showToast("Error creating campaign: " + err.message, true);
-                }
-            }
+        // Profile Dropdown Toggle
+        const profileBtn = document.getElementById('profile-dropdown-btn');
+        const profileCard = document.getElementById('profile-card');
+        profileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            profileCard.classList.toggle('hidden');
+        });
+        document.addEventListener('click', () => {
+            profileCard.classList.add('hidden');
         });
 
-        function showGeneratedLink(url) {
-            const box = document.getElementById('modal-link-result');
-            box.classList.remove('hidden');
-            document.getElementById('result-link-input').value = url;
-            document.getElementById('result-open-link').href = url;
-
-            document.getElementById('modal-copy-btn').onclick = () => {
-                navigator.clipboard.writeText(url);
-                document.getElementById('modal-copy-btn').textContent = "Copied!";
-                setTimeout(() => document.getElementById('modal-copy-btn').textContent = "Copy Link", 2000);
-            };
+        function openLogoutModal() {
+            document.getElementById('logout-modal').classList.remove('hidden');
+        }
+        function closeLogoutModal() {
+            document.getElementById('logout-modal').classList.add('hidden');
+        }
+        async function executeLogout() {
+            try {
+                await fetch('/api/admin/logout', { method: 'POST' });
+            } finally {
+                window.location.href = '/login.html';
+            }
         }
 
-        // Load Main Unified Table
+        // Initialize Authentication
+        async function initAuth() {
+            try {
+                const res = await fetch('/api/admin/me');
+                if (!res.ok) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                const data = await res.json();
+                document.getElementById('dropdown-username').textContent = data.username || 'Recruiter';
+                document.getElementById('dropdown-role').textContent = data.role === 'admin' ? 'Super Administrator' : 'Company Recruiter';
+
+                if (data.role === 'admin') {
+                    document.getElementById('dropdown-superadmin-link').classList.remove('hidden');
+                }
+            } catch (err) {
+                window.location.href = '/login.html';
+            }
+        }
+
+        // Load Scenarios
+        async function loadScenarios() {
+            try {
+                const res = await fetch('/api/admin/scenarios');
+                if (!res.ok) return;
+                const scenarios = await res.json();
+                const select = document.getElementById('common-scenario');
+                if (scenarios && scenarios.length > 0) {
+                    select.innerHTML = scenarios.map(s => `
+                        <option value="${s.id}">${s.title} (${s.language || 'code'})</option>
+                    `).join('');
+                }
+            } catch (err) {}
+        }
+
+        // Load Assessments Roster
         async function loadAll() {
             try {
                 const [intRes, cohRes] = await Promise.all([
@@ -883,12 +593,17 @@
                                 ACTIVE
                             </span>
                         </td>
-                        <td class="px-6 py-4 text-right space-x-1.5">
-                            <button onclick="navigator.clipboard.writeText('${c.cohort_url}'); showToast('Campaign link copied!');" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-[11px] font-semibold transition">
-                                Copy Link
-                            </button>
-                            <a href="${c.cohort_url}" target="_blank" class="px-2.5 py-1 bg-purple-600 text-white hover:bg-purple-700 rounded text-[11px] font-semibold transition inline-block">
-                                Test Entry
+                        <td class="px-6 py-4">
+                            <div onclick="copyText('${c.cohort_url}')" class="group flex items-center gap-1.5 cursor-pointer max-w-[180px] p-1.5 rounded hover:bg-slate-100 transition" title="Click to copy cohort link">
+                                <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 shrink-0"></i>
+                                <span class="text-[11px] font-mono text-slate-500 group-hover:text-purple-600 truncate underline decoration-slate-300">
+                                    ${c.cohort_url}
+                                </span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="${c.cohort_url}" target="_blank" class="p-2 text-slate-400 hover:text-purple-600 hover:bg-slate-100 rounded-lg transition inline-flex" title="Test Entry">
+                                <i data-lucide="external-link" class="w-4 h-4"></i>
                             </a>
                         </td>
                     `;
@@ -911,9 +626,9 @@
                     } else if (item.status === 'COMPLETED') {
                         badge = "bg-emerald-50 text-emerald-700 border-emerald-300 font-bold";
                         statusLabel = "✓ VERIFIED";
-                    } else if (item.status === 'TERMINATED_VIOLATION') {
+                    } else if (item.status === 'EXPIRED') {
                         badge = "bg-rose-50 text-rose-700 border-rose-300 font-bold";
-                        statusLabel = "✕ VIOLATION EXIT";
+                        statusLabel = "✕ EXPIRED";
                     }
 
                     const timeStr = formatRelativeTime(item.created_at);
@@ -940,18 +655,18 @@
                                 ${statusLabel}
                             </span>
                         </td>
-                        <td class="px-6 py-4 text-right space-x-1.5">
-                            <button onclick="navigator.clipboard.writeText('${item.invite_url}'); showToast('Magic Link copied!');" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-[11px] font-semibold transition">
-                                Copy Link
-                            </button>
-                            <a href="${item.invite_url}" target="_blank" class="px-2.5 py-1 bg-brandBlue text-white hover:bg-blue-600 rounded text-[11px] font-semibold transition inline-block">
-                                Open
-                            </a>
-                            <button onclick="viewScorecard('${item.id}')" class="px-2.5 py-1 border hover:bg-slate-100 rounded text-slate-600 text-[11px] font-semibold transition">
-                                Scorecard
-                            </button>
-                            <button onclick="openGodMode('${item.id}')" class="px-2.5 py-1 bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 rounded text-[11px] font-bold transition inline-flex items-center gap-1">
-                                ⚡ God Mode
+                        <td class="px-6 py-4">
+                            <div onclick="copyText('${item.invite_url}')" class="group flex items-center gap-1.5 cursor-pointer max-w-[180px] p-1.5 rounded hover:bg-slate-100 transition" title="Click to copy invite link">
+                                <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 shrink-0"></i>
+                                <span class="text-[11px] font-mono text-slate-500 group-hover:text-blue-600 truncate underline decoration-slate-300">
+                                    ${item.invite_url || item.id}
+                                </span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <button onclick="window.location.href='/session.html?id=${encodeURIComponent(item.id)}'" 
+                                    class="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition" title="View Full Session Details & Scorecard">
+                                <i data-lucide="more-vertical" class="w-4 h-4"></i>
                             </button>
                         </td>
                     `;
@@ -959,584 +674,224 @@
                 });
 
                 if (interviews.length === 0 && cohorts.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400">No assessments created yet. Click <b>+ Create Assessment</b> to issue your first session or campaign!</td></tr>`;
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="px-6 py-12 text-center text-slate-400 text-xs">
+                                No assessments created yet. Click <b>+ Create Assessment</b> to issue your first session or campaign!
+                            </td>
+                        </tr>
+                    `;
                 }
 
                 document.getElementById('stat-campaigns').textContent = campaignCount;
                 document.getElementById('stat-single').textContent = singleCount;
                 document.getElementById('stat-in-progress').textContent = inProg;
                 document.getElementById('stat-completed').textContent = comp;
-                if (window.lucide) lucide.createIcons();
+
+                lucide.createIcons();
             } catch (err) {
-                console.error("Error loading assessments:", err);
+                console.error("Error loading roster:", err);
             }
         }
 
-        async function viewScorecard(sessionId) {
-            try {
-                const res = await fetch(`/api/telemetry/report?sessionId=${sessionId}`);
-                const data = await res.json();
-                const s = data.candidate_summary || {};
-                const content = document.getElementById('scorecard-content');
+        // Scope selection & pricing tier logic
+        let currentScope = 'single';
+        function selectType(type) {
+            currentScope = type;
+            const optSingle = document.getElementById('type-opt-single');
+            const optCamp = document.getElementById('type-opt-campaign');
+            const fieldsSingle = document.getElementById('fields-single');
+            const fieldsCamp = document.getElementById('fields-campaign');
 
-                let verdictColor = "bg-emerald-100 text-emerald-800 border-emerald-300";
-                if (s.verdict === 'NO_HIRE') verdictColor = "bg-rose-100 text-rose-800 border-rose-300";
-                else if (s.verdict === 'LEAN_NO_HIRE') verdictColor = "bg-amber-100 text-amber-800 border-amber-300";
-
-                content.innerHTML = `
-                    <div class="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-200">
-                        <div>
-                            <div class="text-xs text-slate-400 uppercase tracking-wider font-bold">Candidate Recommendation</div>
-                            <div class="text-lg font-black text-slate-900">${s.candidate_name || 'Candidate'}</div>
-                            <div class="text-[11px] font-mono text-slate-500">Session: ${sessionId}</div>
-                        </div>
-                        <span class="px-3 py-1 rounded-lg text-xs font-black border ${verdictColor}">
-                            ${s.verdict || 'STRONG HIRE'}
-                        </span>
-                    </div>
-
-                    <!-- 4 Proprietary AI-Engineering Metrics Grid -->
-                    <div class="grid grid-cols-2 gap-3 text-xs">
-                        <div class="p-3.5 rounded-xl border border-slate-200 bg-white shadow-sm space-y-1">
-                            <div class="text-[11px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                                <i data-lucide="repeat" class="w-3.5 h-3.5 text-blue-500"></i> Prompt Churn Ratio
-                            </div>
-                            <div class="text-base font-black text-emerald-600">${s.prompt_churn_ratio || '0.14 (Optimal - Low Churn)'}</div>
-                            <p class="text-[11px] text-slate-500">Candidate stopped reprompting Claude on errors and provided contextual steering.</p>
-                        </div>
-
-                        <div class="p-3.5 rounded-xl border border-slate-200 bg-white shadow-sm space-y-1">
-                            <div class="text-[11px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                                <i data-lucide="split" class="w-3.5 h-3.5 text-purple-500"></i> AI vs. Manual Split
-                            </div>
-                            <div class="text-base font-black text-purple-600">${s.ai_vs_manual_split || '94% AI / 6% Human Edits'}</div>
-                            <p class="text-[11px] text-slate-500">Ideal hybrid: Rapid scaffolding via AI with senior surgical debugging in code editor.</p>
-                        </div>
-
-                        <div class="p-3.5 rounded-xl border border-slate-200 bg-white shadow-sm space-y-1">
-                            <div class="text-[11px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-500"></i> Architectural Drift
-                            </div>
-                            <div class="text-base font-black text-slate-900">${s.architectural_drift || '0 Violations (Clean Architecture)'}</div>
-                            <p class="text-[11px] text-slate-500">Strict constraints met: Zero unauthorized dependencies. Method signatures preserved.</p>
-                        </div>
-
-                        <div class="p-3.5 rounded-xl border border-slate-200 bg-white shadow-sm space-y-1">
-                            <div class="text-[11px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                                <i data-lucide="timer" class="w-3.5 h-3.5 text-amber-500"></i> Time to First Working State
-                            </div>
-                            <div class="text-base font-black text-amber-600">${s.time_to_first_working_state || '18.4 mins'}</div>
-                            <p class="text-[11px] text-slate-500">Elapsed minutes until hidden evaluation race tests passed for the first time.</p>
-                        </div>
-                    </div>
-
-                    <!-- Proctoring Timeline -->
-                    <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
-                        <div class="flex justify-between items-center text-xs">
-                            <span class="font-bold text-slate-700 flex items-center gap-1.5"><i data-lucide="shield" class="w-3.5 h-3.5 text-blue-600"></i> Proctoring Integrity Score:</span>
-                            <span class="font-black text-slate-900 font-mono text-sm">${s.integrity_score || '85 / 100'}</span>
-                        </div>
-                        <div class="text-[11px] text-slate-500">
-                            ${(!data.integrity_timeline || data.integrity_timeline.length === 0) 
-                                ? '<span class="text-emerald-600 font-semibold">✓ 100% Clean Session. Zero fullscreen exits or tab blurs.</span>'
-                                : data.integrity_timeline.map(ev => `<div class="text-red-600 font-mono">• [${ev.type}] ${ev.detail} (${new Date(ev.timestamp).toLocaleTimeString()})</div>`).join('')}
-                        </div>
-                    </div>
-
-                    <button onclick="document.getElementById('scorecard-modal').classList.add('hidden'); openGodMode('${sessionId}')" class="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 transition">
-                        <i data-lucide="zap" class="w-4 h-4"></i> Open "God Mode" Synced Playback Timeline
-                    </button>
-                `;
-
-                document.getElementById('scorecard-modal').classList.remove('hidden');
-                if (window.lucide) lucide.createIcons();
-            } catch (err) {
-                showToast("Could not load scorecard: " + err.message, true);
-            }
-        }
-
-        // ==========================================
-        // "GOD MODE" PLAYBACK ENGINE
-        // ==========================================
-        let activeGodModeTimeline = [];
-        let currentGodModeIdx = 0;
-
-        async function openGodMode(sessionId) {
-            try {
-                const res = await fetch(`/api/telemetry/report?sessionId=${sessionId}`);
-                const data = await res.json();
-                activeGodModeTimeline = data.god_mode_timeline || [];
-
-                document.getElementById('godmode-session-id').textContent = sessionId;
-                document.getElementById('godmode-candidate-name').textContent = data.candidate_summary?.candidate_name || 'Candidate';
-
-                
-                renderGodModeScrubber();
-                selectGodModeIndex(activeGodModeTimeline.length > 0 ? activeGodModeTimeline.length - 1 : 0);
-
-                document.getElementById('godmode-modal').classList.remove('hidden');
-                if (window.lucide) lucide.createIcons();
-            } catch (err) {
-                showToast("Failed to load God Mode telemetry: " + err.message, true);
-            }
-        }
-
-        
-        function renderGodModeScrubber() {
-            const container = document.getElementById('godmode-scrubber-container');
-            if (!container) return;
-            container.innerHTML = '';
-            
-            if (!activeGodModeTimeline || activeGodModeTimeline.length === 0) {
-                container.style.gridTemplateColumns = `repeat(1, minmax(0, 1fr))`;
-                return;
-            }
-            
-            container.style.gridTemplateColumns = `repeat(${activeGodModeTimeline.length}, minmax(0, 1fr))`;
-            
-            activeGodModeTimeline.forEach((item, idx) => {
-                const btn = document.createElement('button');
-                btn.id = 'seg-' + idx;
-                btn.onclick = () => selectGodModeIndex(idx);
-                
-                let baseClass = "h-full rounded text-[10px] font-bold flex items-center justify-center transition truncate px-2 whitespace-nowrap ";
-                if (item.zone === 'red') {
-                    baseClass += "bg-red-600/30 hover:bg-red-600/50 border border-red-500/50 text-red-300";
-                } else if (item.zone === 'yellow') {
-                    baseClass += "bg-amber-500/30 hover:bg-amber-500/50 border border-amber-400/50 text-amber-200";
-                } else {
-                    baseClass += "bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/50 text-emerald-300";
-                }
-                
-                btn.className = baseClass;
-                btn.textContent = `${item.time_display} • ${item.zone_label || 'Action'}`;
-                container.appendChild(btn);
-            });
-        }
-
-        function selectGodModeIndex(idx) {
-            if (!activeGodModeTimeline || activeGodModeTimeline.length === 0) return;
-            if (idx < 0) idx = 0;
-            if (idx >= activeGodModeTimeline.length) idx = activeGodModeTimeline.length - 1;
-            currentGodModeIdx = idx;
-
-            const item = activeGodModeTimeline[idx];
-
-            // Update Header & Scrubber Label
-            document.getElementById('godmode-checkpoint-title').textContent = item.title;
-            document.getElementById('godmode-time-display').textContent = item.time_display;
-            
-            const badge = document.getElementById('godmode-phase-badge');
-            badge.textContent = item.zone_label;
-            if (item.zone === 'green') badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
-            else if (item.zone === 'red') badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/40";
-            else if (item.zone === 'yellow') badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40";
-
-            // Highlight Active Scrubber Segment
-            for (let i = 0; i < 4; i++) {
-                const segBtn = document.getElementById(`seg-${i}`);
-                if (segBtn) {
-                    if (i === idx) {
-                        segBtn.classList.add('ring-2', 'ring-white', 'scale-[1.02]');
-                    } else {
-                        segBtn.classList.remove('ring-2', 'ring-white', 'scale-[1.02]');
-                    }
-                }
-            }
-
-            // Left Panel: AI Chat
-            const chatEl = document.getElementById('godmode-chat-container');
-            chatEl.innerHTML = `
-                <div class="space-y-3">
-                    <div class="p-3 rounded-xl bg-blue-950/60 border border-blue-900 text-blue-200">
-                        <div class="font-bold text-[11px] text-blue-400 mb-1 flex items-center gap-1.5">
-                            <i data-lucide="user" class="w-3.5 h-3.5"></i> Candidate Prompt (T+${item.time_display})
-                        </div>
-                        <p class="leading-relaxed font-mono">${item.ai_prompt}</p>
-                    </div>
-
-                    <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-300">
-                        <div class="font-bold text-[11px] text-purple-400 mb-1 flex items-center gap-1.5">
-                            <i data-lucide="bot" class="w-3.5 h-3.5"></i> Claude Code Response
-                        </div>
-                        <p class="leading-relaxed font-mono">${item.ai_response}</p>
-                    </div>
-
-                    <div class="p-3 rounded-xl bg-slate-900/50 border border-slate-800/80 text-[11px] text-slate-400">
-                        <b>Evaluator Note:</b> ${item.summary}
-                    </div>
-                </div>
-            `;
-
-            // Middle Panel: Codebase State & Diff
-            document.getElementById('godmode-file-path').textContent = item.file_path;
-            document.getElementById('godmode-code-container').textContent = item.code_snapshot;
-
-            // Right Panel: Terminal Output & Tests
-            document.getElementById('godmode-term-container').textContent = item.terminal_output;
-
-            if (window.lucide) lucide.createIcons();
-        }
-
-        function formatRelativeTime(dateStr) {
-            if (!dateStr) return 'Recently';
-            const date = new Date(dateStr);
-            if (isNaN(date.getTime())) return dateStr;
-            const now = new Date();
-            const diffSec = Math.floor((now - date) / 1000);
-            if (diffSec < 60) return 'Just now';
-            if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
-            if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
-            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        }
-
-        // Logout Modal Controls
-        function openLogoutModal() {
-            const modal = document.getElementById('logout-modal');
-            if (modal) modal.classList.remove('hidden');
-        }
-
-        function closeLogoutModal() {
-            const modal = document.getElementById('logout-modal');
-            if (modal) modal.classList.add('hidden');
-        }
-
-        document.getElementById('logout-btn').addEventListener('click', (e) => {
-            e.preventDefault();
-            openLogoutModal();
-        });
-
-        document.getElementById('confirm-logout-btn').addEventListener('click', async () => {
-            try {
-                await fetch('/api/admin/logout', { method: 'POST' });
-            } catch (err) {}
-            localStorage.removeItem('triagehubs_token');
-            localStorage.removeItem('triagehubs_user');
-            localStorage.removeItem('vibescout_token');
-            localStorage.removeItem('vibescout_user');
-            // Redirect to homepage (not login page) as requested!
-            window.location.href = '/';
-        });
-
-        function escapeHtml(str) {
-            if (!str) return '';
-            return String(str).replace(/[&<>"']/g, function(m) {
-                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
-            });
-        }
-
-        let currentUserRole = 'recruiter';
-
-        // Verify authenticated session and display recruiter username/role
-        async function initAuth() {
-            try {
-                const res = await fetch('/api/admin/me');
-                const data = await res.json();
-                if (!data.authenticated || !data.username) {
-                    window.location.href = '/login.html?mode=signin';
-                    return;
-                }
-                const nameEl = document.getElementById('recruiter-name');
-                if (nameEl) nameEl.textContent = data.username;
-
-                currentUserRole = data.role || 'recruiter';
-                const roleEl = document.getElementById('recruiter-role');
-                const avatarEl = document.getElementById('recruiter-avatar');
-
-                if (currentUserRole === 'admin') {
-                    if (roleEl) {
-                        roleEl.textContent = 'Super Administrator';
-                        roleEl.className = 'text-[10px] text-purple-400 font-bold';
-                    }
-                    if (avatarEl) {
-                        avatarEl.className = 'w-8 h-8 rounded-full bg-purple-700 flex items-center justify-center font-bold text-xs shrink-0 text-white';
-                    }
-                    document.getElementById('nav-btn-platform')?.classList.remove('hidden');
-                    document.getElementById('superadmin-tools')?.classList.remove('hidden');
-                    loadPlatformOverview();
-                } else {
-                    if (roleEl) roleEl.textContent = 'Company Recruiter';
-                }
-            } catch (err) {
-                console.warn('Session verification warning:', err);
-            }
-        }
-
-        function switchMainTab(tab) {
-            const btnAssessments = document.getElementById('nav-btn-assessments');
-            const btnPlatform = document.getElementById('nav-btn-platform');
-            const viewAssessments = document.getElementById('view-assessments');
-            const viewPlatform = document.getElementById('view-platform');
-            const headerTitle = document.getElementById('page-header-title');
-            const headerSubtitle = document.getElementById('page-header-subtitle');
-
-            if (tab === 'platform') {
-                viewAssessments?.classList.add('hidden');
-                viewPlatform?.classList.remove('hidden');
-                btnAssessments.className = "w-full flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg text-xs font-medium text-left transition";
-                btnPlatform.className = "w-full flex items-center gap-3 px-3 py-2.5 bg-purple-600/10 text-purple-400 rounded-lg text-xs font-bold border border-purple-500/20 text-left transition";
-                if (headerTitle) headerTitle.textContent = "Platform Super Admin Overview";
-                if (headerSubtitle) headerSubtitle.textContent = "Real-time system telemetry, enterprise pilot leads, and access provisioning";
-                loadPlatformOverview();
+            if (type === 'single') {
+                optSingle.className = "p-4 rounded-xl border-2 border-brandBlue bg-blue-50/40 cursor-pointer transition flex flex-col justify-between";
+                optCamp.className = "p-4 rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white cursor-pointer transition flex flex-col justify-between";
+                fieldsSingle.classList.remove('hidden');
+                fieldsCamp.classList.add('hidden');
             } else {
-                viewPlatform?.classList.add('hidden');
-                viewAssessments?.classList.remove('hidden');
-                btnAssessments.className = "w-full flex items-center gap-3 px-3 py-2.5 bg-blue-600/10 text-brandBlue rounded-lg text-xs font-bold border border-blue-500/20 text-left transition";
-                btnPlatform.className = "w-full flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg text-xs font-medium text-left transition";
-                if (headerTitle) headerTitle.textContent = "Assessment Hub";
-                if (headerSubtitle) headerSubtitle.textContent = "Manage individual candidate sessions and high-concurrency mass campaigns";
-                loadAll();
+                optSingle.className = "p-4 rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white cursor-pointer transition flex flex-col justify-between";
+                optCamp.className = "p-4 rounded-xl border-2 border-purple-600 bg-purple-50/40 cursor-pointer transition flex flex-col justify-between";
+                fieldsSingle.classList.add('hidden');
+                fieldsCamp.classList.remove('hidden');
             }
-            if (window.lucide) lucide.createIcons();
+            updateTierLogic();
         }
 
-        async function loadPlatformOverview() {
+        function updateTierLogic() {
+            const tierVal = document.querySelector('input[name="tier"]:checked').value;
+            const byokBoxSingle = document.getElementById('single-byok-box');
+            const byokBoxCamp = document.getElementById('camp-byok-math-box');
+
+            if (tierVal === 'byok') {
+                byokBoxSingle.classList.remove('hidden');
+                byokBoxCamp.classList.remove('hidden');
+            } else {
+                byokBoxSingle.classList.add('hidden');
+                byokBoxCamp.classList.add('hidden');
+            }
+
+            const count = currentScope === 'single' ? 1 : (parseInt(document.getElementById('camp-candidate-count').value) || 100);
+            const rate = tierVal === 'managed' ? 40 : 25;
+            const total = count * rate;
+            document.getElementById('price-summary-tag').textContent = `$${total} Total`;
+            document.getElementById('final-price-display').textContent = `$${total}`;
+        }
+
+        function recalcCampaignMath() {
+            const count = parseInt(document.getElementById('camp-candidate-count').value) || 10;
+            const factor = parseFloat(document.getElementById('camp-safety-factor').value) || 1.5;
+            const tpm = Math.round(count * 10000 * factor);
+            document.getElementById('camp-required-tpm').textContent = `${tpm.toLocaleString()} TPM`;
+            const keys = Math.max(1, Math.ceil(tpm / 2000000));
+            document.getElementById('camp-keys-needed-count').textContent = `${keys} Key${keys > 1 ? 's' : ''}`;
+            updateTierLogic();
+        }
+
+        function openCreateModal() {
+            document.getElementById('create-modal').classList.remove('hidden');
+            document.getElementById('modal-link-result').classList.add('hidden');
+        }
+        function closeCreateModal() {
+            document.getElementById('create-modal').classList.add('hidden');
+        }
+
+        // Create Assessment Form Submission
+        document.getElementById('create-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submit-create-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Generating...';
+            lucide.createIcons();
+
+            const tier = document.querySelector('input[name="tier"]:checked').value;
+            const scenario = document.getElementById('common-scenario').value;
+            const duration = parseInt(document.getElementById('common-duration').value) || 45;
+
             try {
-                const res = await fetch('/api/admin/platform/overview');
-                if (!res.ok) return;
-                const data = await res.json();
-                
-                const pilotsEl = document.getElementById('platform-stat-pilots');
-                const recsEl = document.getElementById('platform-stat-recruiters');
-                const intsEl = document.getElementById('platform-stat-interviews');
-                const cohEl = document.getElementById('platform-stat-cohorts');
+                if (currentScope === 'single') {
+                    const payload = {
+                        candidate_name: document.getElementById('single-name').value.trim(),
+                        candidate_email: document.getElementById('single-email').value.trim(),
+                        scenario_id: scenario,
+                        scenario_title: document.getElementById('common-scenario').selectedOptions[0]?.text || scenario,
+                        target_provider: tier,
+                        api_key: tier === 'byok' ? document.getElementById('single-api-key').value.trim() : '',
+                        duration_mins: duration,
+                        scheduled_at: document.getElementById('single-scheduled').value
+                    };
 
-                if (pilotsEl) pilotsEl.textContent = data.total_pilot_requests || 0;
-                if (recsEl) recsEl.textContent = data.total_recruiters || 0;
-                if (intsEl) intsEl.textContent = data.total_interviews || 0;
-                if (cohEl) cohEl.textContent = data.total_cohorts || 0;
-
-                const pilotTbody = document.getElementById('platform-pilots-tbody');
-                if (pilotTbody) {
-                    if (!data.pilot_requests || data.pilot_requests.length === 0) {
-                        pilotTbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-400 text-xs">No pilot requests submitted yet.</td></tr>`;
-                    } else {
-                        pilotTbody.innerHTML = data.pilot_requests.map(p => `
-                            <tr class="border-b border-slate-100 hover:bg-slate-50/60 transition text-xs">
-                                <td class="px-6 py-4 font-bold text-slate-900">${escapeHtml(p.company_name)}</td>
-                                <td class="px-6 py-4">
-                                    <div class="font-semibold text-slate-800">${escapeHtml(p.full_name)}</div>
-                                    <div class="text-[11px] text-slate-500 font-mono">${escapeHtml(p.work_email)}</div>
-                                </td>
-                                <td class="px-6 py-4 font-medium text-slate-700">${escapeHtml(p.team_size || 'Flexible')}</td>
-                                <td class="px-6 py-4 text-slate-500 max-w-xs truncate" title="${escapeHtml(p.notes)}">${escapeHtml(p.notes || '—')}</td>
-                                <td class="px-6 py-4 text-slate-400">${new Date(p.created_at).toLocaleDateString()}</td>
-                                <td class="px-6 py-4 text-right">
-                                    <button onclick="prefillAndOpenInvite('${escapeHtml(p.company_name)}', '${escapeHtml(p.work_email)}')" 
-                                            class="px-2.5 py-1.5 bg-brandDark hover:bg-slate-800 text-white rounded-md text-[11px] font-semibold transition flex items-center gap-1 shadow-sm inline-flex">
-                                        <i data-lucide="key" class="w-3 h-3 text-amber-400"></i> Issue Invite
-                                    </button>
-                                </td>
-                            </tr>
-                        `).join('');
-                        if (window.lucide) lucide.createIcons();
-                    }
-                }
-                
-                // Render Organizations
-                const orgsTbody = document.getElementById('platform-orgs-tbody');
-                if (orgsTbody) {
-                    if (!data.organizations || data.organizations.length === 0) {
-                        orgsTbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-400 text-xs">No organizations registered.</td></tr>`;
-                    } else {
-                        orgsTbody.innerHTML = data.organizations.map(o => `
-                            <tr class="border-b border-slate-100 hover:bg-slate-50/60 transition text-xs">
-                                <td class="px-6 py-4 font-bold text-slate-900">${escapeHtml(o.username)}</td>
-                                <td class="px-6 py-4 text-slate-500 font-mono">${escapeHtml(o.role)}</td>
-                                <td class="px-6 py-4 text-right"><span class="px-2 py-1 bg-emerald-50 text-emerald-600 rounded font-bold text-[10px]">ACTIVE</span></td>
-                            </tr>
-                        `).join('');
-                    }
-                }
-
-                // Render Global Sessions
-                const sessTbody = document.getElementById('platform-sessions-tbody');
-                if (sessTbody) {
-                    if (!data.global_interviews || data.global_interviews.length === 0) {
-                        sessTbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400 text-xs">No candidate sessions active.</td></tr>`;
-                    } else {
-                        sessTbody.innerHTML = data.global_interviews.map(i => {
-                            let badge = `<span class="px-2 py-1 bg-slate-100 text-slate-500 rounded font-bold text-[10px]">${escapeHtml(i.status)}</span>`;
-                            if (i.status === 'COMPLETED') badge = `<span class="px-2 py-1 bg-purple-50 text-purple-600 rounded font-bold text-[10px]">${escapeHtml(i.status)}</span>`;
-                            if (i.status === 'IN_PROGRESS') badge = `<span class="px-2 py-1 bg-amber-50 text-amber-600 rounded font-bold text-[10px]">${escapeHtml(i.status)}</span>`;
-                            
-                            return `
-                            <tr class="border-b border-slate-100 hover:bg-slate-50/60 transition text-xs">
-                                <td class="px-6 py-4 text-slate-400 font-mono text-[10px] truncate max-w-[120px]">${escapeHtml(i.id)}</td>
-                                <td class="px-6 py-4 font-bold text-slate-900">${escapeHtml(i.candidate_name)} <br><span class="text-[10px] text-slate-500 font-normal">${escapeHtml(i.candidate_email)}</span></td>
-                                <td class="px-6 py-4 text-slate-500 font-mono">${escapeHtml(i.recruiter_username)}</td>
-                                <td class="px-6 py-4 text-right">${badge}</td>
-                            </tr>
-                        `}).join('');
-                    }
-                }
-            } catch (err) {
-                console.warn('Failed to load platform overview:', err);
-            }
-        }
-
-        function prefillAndOpenInvite(company, email) {
-            openInviteModal();
-            const compInput = document.getElementById('invite-company');
-            const emailInput = document.getElementById('invite-email');
-            if (compInput) compInput.value = company;
-            if (emailInput) emailInput.value = email;
-        }
-
-        async function confirmCleanDatabase() {
-            if (!confirm('⚠️ DANGER: This will erase all candidate sessions, cohorts, telemetry, and recruiter invites from Supabase PostgreSQL, preserving only the Super Admin account.\\n\\nAre you sure you want to proceed?')) {
-                return;
-            }
-            const confirmWord = prompt('Type "WIPE" to confirm complete database reset:');
-            if (confirmWord !== 'WIPE') {
-                alert('Database reset cancelled.');
-                return;
-            }
-            try {
-                const res = await fetch('/api/admin/system/clean', { method: 'POST' });
-                if (res.ok) {
-                    showToast('Database wiped clean. Only Super Admin preserved.');
-                    loadAll();
-                    loadPlatformOverview();
-                } else {
-                    const txt = await res.text();
-                    alert('Database clean error: ' + txt);
-                }
-            } catch (err) {
-                alert('Network error: ' + err.message);
-            }
-        }
-
-        // Supabase Realtime Live Synchronization (Zero-Lag Dashboard Updates)
-        function initRealtime() {
-            try {
-                if (window.supabase && typeof window.supabase.createClient === 'function') {
-                    const supabaseClient = window.supabase.createClient(
-                        'https://evfmqxvsnsjoukimahhl.supabase.co',
-                        'sb_publishable_vHF7geM-1E434L8hV5b7sg_rJNl1stZ'
-                    );
-
-                    supabaseClient
-                        .channel('dashboard-live-channel')
-                        .on('postgres_changes', { event: '*', schema: 'public', table: 'interviews' }, (payload) => {
-                            console.log('⚡ [Supabase Realtime] Interview Change:', payload);
-                            loadAll();
-                            if (payload.new && payload.new.candidate_name) {
-                                showToast(`⚡ Live Update: ${payload.new.candidate_name} status is now ${payload.new.status}`);
-                            }
-                        })
-                        .on('postgres_changes', { event: '*', schema: 'public', table: 'telemetry_sessions' }, (payload) => {
-                            console.log('⚡ [Supabase Realtime] Telemetry Change:', payload);
-                            loadAll();
-                        })
-                        .subscribe();
-                }
-            } catch (err) {
-                console.warn('Supabase Realtime error:', err);
-            }
-        }
-
-        // Company Invite Modal Controls (B2B Option A)
-        function openInviteModal() {
-            document.getElementById('invite-result-box').classList.add('hidden');
-            document.getElementById('generate-invite-form').reset();
-            document.getElementById('invite-modal').classList.remove('hidden');
-            loadInvites();
-            if (window.lucide) lucide.createIcons();
-        }
-
-        function closeInviteModal() {
-            document.getElementById('invite-modal').classList.add('hidden');
-        }
-
-        async function loadInvites() {
-            const container = document.getElementById('invites-list-container');
-            if (!container) return;
-            try {
-                const res = await fetch('/api/admin/invites');
-                if (!res.ok) throw new Error('Failed to load invites');
-                const list = await res.json();
-                if (!list || list.length === 0) {
-                    container.innerHTML = '<div class="text-slate-400 text-center py-2 text-xs">No invites generated yet.</div>';
-                    return;
-                }
-                container.innerHTML = list.map(inv => {
-                    const statusBadge = inv.used 
-                        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500">Redeemed by ${inv.used_by || 'User'}</span>`
-                        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">Active</span>`;
-                    const fullLink = `${window.location.origin}/login.html?invite=${inv.code}`;
-                    return `
-                        <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200">
-                            <div>
-                                <div class="font-bold text-slate-800">${inv.company_name}</div>
-                                <div class="text-[10px] text-slate-400 font-mono">${inv.email}</div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                ${statusBadge}
-                                <button type="button" onclick="navigator.clipboard.writeText('${fullLink}'); showToast('Copied invite link');" class="p-1 hover:text-brandBlue text-slate-400" title="Copy Invite Link">
-                                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                if (window.lucide) lucide.createIcons();
-            } catch(e) {
-                container.innerHTML = '<div class="text-slate-400 text-center py-2 text-xs">Could not load invites: ' + e.message + '</div>';
-            }
-        }
-
-        const genInviteForm = document.getElementById('generate-invite-form');
-        if (genInviteForm) {
-            genInviteForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('btn-generate-invite');
-                btn.disabled = true;
-
-                const payload = {
-                    company_name: document.getElementById('inv-company-name').value.trim(),
-                    email: document.getElementById('inv-email').value.trim()
-                };
-
-                try {
-                    const res = await fetch('/api/admin/invites/generate', {
+                    const res = await fetch('/api/admin/interviews', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    if (res.ok) {
-                        const data = await res.json();
-                        const fullLink = `${window.location.origin}/login.html?invite=${data.code}`;
-                        document.getElementById('invite-result-company').textContent = data.company_name;
-                        document.getElementById('invite-result-link').value = fullLink;
-                        document.getElementById('invite-result-box').classList.remove('hidden');
-                        showToast(`Invite created for ${data.company_name}`);
-                        loadInvites();
-                    } else {
-                        const txt = await res.text();
-                        showToast(txt || 'Failed to generate invite', true);
-                    }
-                } catch(err) {
-                    showToast('Network error: ' + err.message, true);
-                } finally {
-                    btn.disabled = false;
-                    if (window.lucide) lucide.createIcons();
+
+                    if (!res.ok) throw new Error(await res.text());
+                    const data = await res.json();
+
+                    document.getElementById('result-link-input').value = data.invite_url;
+                    document.getElementById('result-test-entry').href = data.invite_url;
+                    document.getElementById('modal-link-result').classList.remove('hidden');
+                    showToast('Single candidate assessment generated!');
+                } else {
+                    const rawEmails = document.getElementById('camp-emails').value;
+                    const emailsList = rawEmails.split('\n').map(s => s.trim()).filter(Boolean);
+
+                    const payload = {
+                        title: document.getElementById('camp-title').value.trim(),
+                        scenario_id: scenario,
+                        duration_mins: duration,
+                        safe_capacity_seats: parseInt(document.getElementById('camp-candidate-count').value) || 100,
+                        api_key: tier === 'byok' ? document.getElementById('camp-api-key-1').value.trim() : '',
+                        authorized_emails: emailsList
+                    };
+
+                    const res = await fetch('/api/admin/cohorts', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!res.ok) throw new Error(await res.text());
+                    const data = await res.json();
+
+                    document.getElementById('result-link-input').value = data.cohort_url;
+                    document.getElementById('result-test-entry').href = data.cohort_url;
+                    document.getElementById('modal-link-result').classList.remove('hidden');
+                    showToast('Campaign cohort created!');
                 }
-            });
-        }
 
-        function copyInviteResultLink() {
-            const input = document.getElementById('invite-result-link');
-            if (input) {
-                navigator.clipboard.writeText(input.value);
-                showToast('Copied activation invite link to clipboard');
+                loadAll();
+            } catch (err) {
+                alert('Creation Error: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-400"></i> Create & Generate Link';
+                lucide.createIcons();
             }
+        });
+
+        function copyResultLink() {
+            const input = document.getElementById('result-link-input');
+            navigator.clipboard.writeText(input.value);
+            showToast('Copied link to clipboard');
         }
 
-        // Initialize Dashboard
+        // Custom Scenario Upload Modal
+        function openUploadScenarioModal() {
+            document.getElementById('upload-scenario-modal').classList.remove('hidden');
+        }
+        function closeUploadScenarioModal() {
+            document.getElementById('upload-scenario-modal').classList.add('hidden');
+        }
+
+        document.getElementById('scenario-upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-save-scenario');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Provisioning...';
+            lucide.createIcons();
+
+            const fd = new FormData();
+            fd.append('title', document.getElementById('scen-title').value.trim());
+            fd.append('track', document.getElementById('scen-track').value.trim());
+            fd.append('language', document.getElementById('scen-lang').value);
+            fd.append('duration_minutes', document.getElementById('scen-duration').value);
+            fd.append('verify_command', document.getElementById('scen-verify').value.trim());
+            fd.append('problem_statement', document.getElementById('scen-context').value.trim());
+            fd.append('card2_summary', document.getElementById('scen-arch').value.trim());
+            fd.append('card3_summary', document.getElementById('scen-constraints').value.trim());
+
+            const zipInput = document.getElementById('scen-zip');
+            if (zipInput.files.length > 0) {
+                fd.append('workspace_zip', zipInput.files[0]);
+            }
+
+            try {
+                const res = await fetch('/api/admin/scenarios/upload', {
+                    method: 'POST',
+                    body: fd
+                });
+
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                showToast(`Custom scenario '${data.title}' provisioned!`);
+                closeUploadScenarioModal();
+                await loadScenarios();
+                document.getElementById('common-scenario').value = data.scenario_id;
+            } catch (err) {
+                alert('Upload Error: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="upload" class="w-3.5 h-3.5"></i> <span>Upload & Provision</span>';
+                lucide.createIcons();
+            }
+        });
+
+        // Initialize Page
         initAuth();
+        loadScenarios();
         loadAll();
-        initRealtime();
     </script>
 </body>
 </html>

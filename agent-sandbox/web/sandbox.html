@@ -835,14 +835,26 @@
             isProctoredSessionActive = true;
 
             try {
-                const res = await fetch(`/api/session/config?sessionId=${encodeURIComponent(activeToken)}`);
-                const data = await res.json();
-                if (data.remaining_sec !== undefined) {
-                    timeLeft = data.remaining_sec;
-                } else if (data.duration_mins) {
-                    timeLeft = data.duration_mins * 60;
+                const res = await fetch(`/api/session/start?sessionId=${encodeURIComponent(activeToken)}`, {
+                    method: 'POST'
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.remaining_sec !== undefined) {
+                        timeLeft = data.remaining_sec;
+                    } else if (data.duration_mins) {
+                        timeLeft = data.duration_mins * 60;
+                    }
+                } else {
+                    const cfgRes = await fetch(`/api/session/config?sessionId=${encodeURIComponent(activeToken)}`);
+                    if (cfgRes.ok) {
+                        const data = await cfgRes.json();
+                        if (data.remaining_sec !== undefined) {
+                            timeLeft = data.remaining_sec;
+                        }
+                    }
                 }
-            } catch (err) { console.error("Failed to load session config", err); }
+            } catch (err) { console.error("Failed to start session timer", err); }
 
             // Launch initial Claude Code terminal tab
             createTerminalTab('1', 'claude', 'Claude Code', false);

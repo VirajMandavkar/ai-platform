@@ -118,6 +118,7 @@ func main() {
 	http.HandleFunc("/api/workspace/verify", sandbox.HandleRunVerification())
 	http.HandleFunc("/api/workspace/download", sandbox.HandleDownloadWorkspace())
 	http.HandleFunc("/api/session/config", sandbox.HandleGetSessionConfig())
+	http.HandleFunc("/api/session/start", sandbox.HandleSessionStart)
 	http.HandleFunc("/api/telemetry/event", telemetry.HandlePostEvent)
 	
 	// Open Telemetry endpoints (could be protected in prod, but keeping simple)
@@ -151,6 +152,7 @@ func main() {
 			sandbox.HandleListScenarios(scenariosBaseDir)(w, r)
 		}
 	}))
+	http.HandleFunc("/api/admin/scenarios/upload", sandbox.AdminAuthMiddleware(sandbox.HandleUploadScenario(scenariosBaseDir)))
 	http.HandleFunc("/api/admin/interviews", sandbox.AdminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			sandbox.HandleCreateInterview("http://localhost:8081")(w, r)
@@ -158,6 +160,8 @@ func main() {
 			sandbox.HandleListInterviews(w, r)
 		}
 	}))
+	http.HandleFunc("/api/admin/interview/detail", sandbox.AdminAuthMiddleware(sandbox.HandleGetInterviewDetail))
+	http.HandleFunc("/api/admin/interview/update", sandbox.AdminAuthMiddleware(sandbox.HandleUpdateInterview))
 	http.HandleFunc("/api/admin/cohorts", sandbox.AdminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			sandbox.HandleCreateCohort("http://localhost:8081")(w, r)

@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assessment Session Detail | TriageHubs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brandBlue: '#2563eb',
+                        brandDark: '#0f172a'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+
+    <!-- Top Sticky Header -->
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-30 shadow-sm">
+        <div class="flex items-center gap-4">
+            <a href="/dashboard.html" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition flex items-center gap-1.5 text-xs font-semibold">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                <span>Back to Dashboard</span>
+            </a>
+            <div class="h-5 w-px bg-slate-200"></div>
+            <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-xs">
+                    <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+                </div>
+                <span class="font-extrabold text-slate-900 tracking-tight text-sm">TriageHubs</span>
+                <span class="text-xs text-slate-400 font-mono" id="header-session-id">Loading...</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <!-- Profile Avatar Dropdown -->
+            <div class="relative">
+                <button id="profile-dropdown-btn" class="w-9 h-9 rounded-full bg-slate-800 hover:ring-2 hover:ring-blue-400 text-white font-bold text-xs flex items-center justify-center transition shadow-sm">
+                    <i data-lucide="user" class="w-4 h-4"></i>
+                </button>
+                <div id="profile-card" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 text-left">
+                    <div class="px-3 py-2 border-b border-slate-100">
+                        <div id="dropdown-username" class="text-xs font-bold text-slate-900 truncate">Loading...</div>
+                        <div id="dropdown-role" class="text-[10px] text-slate-500 font-semibold uppercase mt-0.5">Recruiter</div>
+                    </div>
+                    <div class="py-1">
+                        <button onclick="window.location.href='/dashboard.html'" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 rounded-lg transition font-medium">
+                            <i data-lucide="layout-dashboard" class="w-4 h-4 text-slate-400"></i>
+                            <span>Dashboard</span>
+                        </button>
+                        <button onclick="openLogoutModal()" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-lg transition font-medium">
+                            <i data-lucide="log-out" class="w-4 h-4 text-rose-500"></i>
+                            <span>Sign Out</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow p-8 max-w-7xl mx-auto w-full space-y-8">
+
+        <!-- Section 1: Session Metadata & Edit Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div>
+                    <div class="flex items-center gap-3">
+                        <h1 class="text-xl font-bold text-slate-900" id="detail-candidate-name">Candidate Name</h1>
+                        <span id="detail-status-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600">
+                            INVITED
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1 font-mono" id="detail-candidate-email">email@example.com</p>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button id="btn-edit-session" onclick="toggleEditMode()" class="hidden px-3.5 py-2 border border-slate-300 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-lg hover:bg-slate-50 transition shadow-sm flex items-center gap-1.5">
+                        <i data-lucide="edit-3" class="w-3.5 h-3.5 text-brandBlue"></i>
+                        <span>Edit Assessment</span>
+                    </button>
+                    <a id="btn-candidate-link" href="#" target="_blank" class="px-4 py-2 bg-brandDark hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition shadow-sm flex items-center gap-1.5">
+                        <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                        <span>Open Sandbox Test Entry</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Read View -->
+            <div id="session-read-grid" class="grid grid-cols-1 md:grid-cols-4 gap-6 text-xs">
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Scenario Track</div>
+                    <div class="font-bold text-slate-900" id="detail-scenario-title">—</div>
+                </div>
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Session Duration</div>
+                    <div class="font-bold text-slate-900" id="detail-duration">— mins</div>
+                </div>
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Scheduled Date & Time</div>
+                    <div class="font-bold text-slate-900" id="detail-scheduled">—</div>
+                    <div class="text-[10px] text-amber-600 mt-0.5">5-minute grace window applies</div>
+                </div>
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Recruiter Tenant</div>
+                    <div class="font-bold text-slate-900 font-mono text-[11px]" id="detail-recruiter">—</div>
+                </div>
+            </div>
+
+            <!-- Edit Form (Only when INVITED) -->
+            <form id="session-edit-form" class="hidden space-y-4 pt-2 border-t border-slate-100">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Candidate Full Name</label>
+                        <input type="text" id="edit-name" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Candidate Email Address</label>
+                        <input type="email" id="edit-email" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Duration (Minutes)</label>
+                        <input type="number" id="edit-duration" min="2" max="180" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Scheduled Time (Optional)</label>
+                        <input type="datetime-local" id="edit-scheduled" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="cancelEditMode()" class="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition">
+                        Cancel
+                    </button>
+                    <button type="submit" id="btn-save-session" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition shadow-sm flex items-center gap-1.5">
+                        <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                        <span>Save Updates</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Invite URL Copy Box -->
+            <div class="p-3.5 bg-slate-900 rounded-xl flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2 text-slate-400 text-xs min-w-0 flex-grow font-mono">
+                    <span class="text-slate-500 shrink-0 font-bold uppercase text-[10px]">Invite Link:</span>
+                    <span id="detail-invite-url" class="truncate text-blue-400 select-all font-mono">loading...</span>
+                </div>
+                <button onclick="copyDetailInviteLink()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5 shrink-0 shadow-sm">
+                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                    <span>Copy</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Section 2: Executive Scorecard -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <i data-lucide="file-check" class="w-4 h-4 text-emerald-600"></i>
+                        <span>Executive Evaluation Scorecard</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Proprietary AI engineering benchmarks, anti-cheat audit log, and hiring recommendation</p>
+                </div>
+                <div id="scorecard-verdict-badge" class="px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-slate-100 text-slate-600">
+                    PENDING COMPLETION
+                </div>
+            </div>
+
+            <!-- Scorecard 4-Metrics Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div class="text-[11px] font-bold text-slate-500 mb-1 flex items-center justify-between">
+                        <span>PROMPT CHURN RATIO</span>
+                        <i data-lucide="repeat" class="w-3.5 h-3.5 text-blue-500"></i>
+                    </div>
+                    <div id="metric-prompt-churn" class="text-lg font-black text-slate-800">N/A</div>
+                    <p class="text-[10px] text-slate-400 mt-1">Reprompt frequency vs steering</p>
+                </div>
+
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div class="text-[11px] font-bold text-slate-500 mb-1 flex items-center justify-between">
+                        <span>AI VS MANUAL SPLIT</span>
+                        <i data-lucide="pie-chart" class="w-3.5 h-3.5 text-indigo-500"></i>
+                    </div>
+                    <div id="metric-ai-split" class="text-lg font-black text-slate-800">N/A</div>
+                    <p class="text-[10px] text-slate-400 mt-1">Scaffolding vs surgical edits</p>
+                </div>
+
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div class="text-[11px] font-bold text-slate-500 mb-1 flex items-center justify-between">
+                        <span>ARCHITECTURAL DRIFT</span>
+                        <i data-lucide="git-branch" class="w-3.5 h-3.5 text-amber-500"></i>
+                    </div>
+                    <div id="metric-drift" class="text-lg font-black text-slate-800">0 Violations</div>
+                    <p class="text-[10px] text-slate-400 mt-1">Preserved method signatures</p>
+                </div>
+
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div class="text-[11px] font-bold text-slate-500 mb-1 flex items-center justify-between">
+                        <span>TIME TO FIRST WORKING</span>
+                        <i data-lucide="clock" class="w-3.5 h-3.5 text-emerald-500"></i>
+                    </div>
+                    <div id="metric-ttfws" class="text-lg font-black text-slate-800">N/A</div>
+                    <p class="text-[10px] text-slate-400 mt-1">First test suite green pass</p>
+                </div>
+            </div>
+
+            <!-- Proctoring & Candidate Prompts Split -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                <!-- Proctoring Summary -->
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-700">Proctoring & Integrity Audit:</span>
+                        <span id="metric-integrity-score" class="font-bold text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                            Score: 100 / 100
+                        </span>
+                    </div>
+                    <div id="proctor-log-container" class="space-y-1.5 max-h-48 overflow-y-auto font-mono text-[11px] text-slate-600">
+                        <div class="text-slate-400 italic py-1">No proctoring violations recorded.</div>
+                    </div>
+                </div>
+
+                <!-- Candidate Prompt Keystrokes Log -->
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-700">Live Candidate Prompts & Inputs:</span>
+                        <span id="prompts-count-badge" class="text-[10px] font-mono font-bold text-blue-600">0 captured</span>
+                    </div>
+                    <div id="prompts-log-container" class="space-y-1.5 max-h-48 overflow-y-auto text-xs">
+                        <div class="text-slate-400 italic py-1">No prompts issued yet.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: God Mode Playback Timeline -->
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden text-white space-y-0">
+            <!-- God Mode Top Bar -->
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center font-bold">
+                        <i data-lucide="zap" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-white">God Mode Synchronized Playback Studio</h3>
+                        <p class="text-[11px] text-slate-400">Step-by-step developer playback correlating terminal commands, AI prompts, and code edits</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span id="godmode-phase-badge" class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        Phase: Inspection
+                    </span>
+                    <span id="godmode-time-display" class="font-mono text-xs text-amber-400 font-bold">00:00</span>
+                </div>
+            </div>
+
+            <!-- 3 Synchronized Panels -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-800 h-[380px]">
+                <!-- Panel 1: AI Prompt & Analysis -->
+                <div class="flex flex-col overflow-hidden">
+                    <div class="h-8 bg-slate-950 px-4 flex items-center justify-between text-xs font-semibold text-slate-400 border-b border-slate-800">
+                        <span class="flex items-center gap-1.5"><i data-lucide="bot" class="w-3.5 h-3.5 text-blue-400"></i> AI Conversation Stream</span>
+                        <span class="text-[10px] font-mono text-slate-500">Claude Code</span>
+                    </div>
+                    <div id="godmode-chat-container" class="flex-grow p-4 overflow-y-auto space-y-3 text-xs font-sans">
+                        <div class="text-slate-400 italic">Select a milestone on the timeline below.</div>
+                    </div>
+                </div>
+
+                <!-- Panel 2: Codebase Snapshot & Diff -->
+                <div class="flex flex-col overflow-hidden">
+                    <div class="h-8 bg-slate-950 px-4 flex items-center justify-between text-xs font-semibold text-slate-400 border-b border-slate-800">
+                        <span class="flex items-center gap-1.5"><i data-lucide="code" class="w-3.5 h-3.5 text-amber-400"></i> Code Snapshot</span>
+                        <span id="godmode-file-path" class="text-[10px] font-mono text-slate-400">processor.go</span>
+                    </div>
+                    <pre id="godmode-code-container" class="flex-grow p-4 overflow-auto font-mono text-xs text-slate-200 bg-black/60 leading-relaxed whitespace-pre">// Code snapshot will appear here</pre>
+                </div>
+
+                <!-- Panel 3: Terminal Output -->
+                <div class="flex flex-col overflow-hidden">
+                    <div class="h-8 bg-slate-950 px-4 flex items-center justify-between text-xs font-semibold text-slate-400 border-b border-slate-800">
+                        <span class="flex items-center gap-1.5"><i data-lucide="terminal" class="w-3.5 h-3.5 text-emerald-400"></i> Terminal Stream & Tests</span>
+                        <span class="text-[10px] font-mono text-slate-500">pty</span>
+                    </div>
+                    <pre id="godmode-term-container" class="flex-grow p-4 overflow-auto font-mono text-xs text-emerald-300 bg-black leading-relaxed whitespace-pre">$ terminal stream ready</pre>
+                </div>
+            </div>
+
+            <!-- Bottom Dynamic Timeline Scrubber -->
+            <div class="bg-slate-950 border-t border-slate-800 p-4 space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                    <div class="flex items-center gap-3">
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> 🟩 AI Generation</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span> 🟥 Tests Failing</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span> 🟨 Manual Override</span>
+                    </div>
+                    <div id="godmode-checkpoint-title" class="font-bold text-white text-xs truncate max-w-sm">
+                        Timeline Milestone
+                    </div>
+                </div>
+
+                <div id="godmode-scrubber-container" class="grid gap-1.5 h-8 bg-slate-900 rounded-lg p-1 border border-slate-800">
+                    <div class="text-slate-500 text-xs text-center py-1">Loading timeline checkpoints...</div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Sign Out Modal -->
+    <div id="logout-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center space-y-4">
+            <div class="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+                <i data-lucide="log-out" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-slate-900">Sign Out Confirmation</h3>
+                <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                    Are you sure you want to end your recruiter session?
+                </p>
+            </div>
+            <div class="flex items-center gap-3 pt-2">
+                <button onclick="closeLogoutModal()" class="flex-1 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                    Cancel
+                </button>
+                <button onclick="executeLogout()" class="flex-1 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition shadow-sm">
+                    Sign Out
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Banner -->
+    <div id="toast" class="hidden fixed bottom-6 right-6 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 z-50">
+        <span id="toast-text"></span>
+    </div>
+
+    <script>
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-text').textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, function(m) {
+                switch (m) {
+                    case '&': return '&amp;';
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '"': return '&quot;';
+                    case "'": return '&#39;';
+                    default: return m;
+                }
+            });
+        }
+
+        // Profile Dropdown
+        const profileBtn = document.getElementById('profile-dropdown-btn');
+        const profileCard = document.getElementById('profile-card');
+        profileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            profileCard.classList.toggle('hidden');
+        });
+        document.addEventListener('click', () => {
+            profileCard.classList.add('hidden');
+        });
+
+        function openLogoutModal() {
+            document.getElementById('logout-modal').classList.remove('hidden');
+        }
+        function closeLogoutModal() {
+            document.getElementById('logout-modal').classList.add('hidden');
+        }
+        async function executeLogout() {
+            try {
+                await fetch('/api/admin/logout', { method: 'POST' });
+            } finally {
+                window.location.href = '/login.html';
+            }
+        }
+
+        // Session ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionID = urlParams.get('id') || urlParams.get('sessionId') || '';
+        if (!sessionID) {
+            alert('No session ID specified. Redirecting to dashboard...');
+            window.location.href = '/dashboard.html';
+        }
+
+        document.getElementById('header-session-id').textContent = sessionID;
+
+        let activeGodModeTimeline = [];
+        let currentGodModeIdx = 0;
+        let currentSessionData = null;
+
+        // Load Session Detail Metadata
+        async function loadSessionDetail() {
+            try {
+                const res = await fetch(`/api/admin/interview/detail?id=${encodeURIComponent(sessionID)}`);
+                if (!res.ok) {
+                    throw new Error('Assessment session not found or access denied');
+                }
+                const data = await res.json();
+                currentSessionData = data;
+
+                document.getElementById('detail-candidate-name').textContent = data.candidate_name || 'Candidate';
+                document.getElementById('detail-candidate-email').textContent = data.candidate_email || '—';
+                document.getElementById('detail-scenario-title').textContent = data.scenario_title || data.scenario_id;
+                document.getElementById('detail-duration').textContent = `${data.duration_mins} mins`;
+                document.getElementById('detail-recruiter').textContent = data.recruiter_username || 'admin';
+
+                // Format Scheduled Time
+                if (data.scheduled_at) {
+                    const schedDate = new Date(data.scheduled_at);
+                    document.getElementById('detail-scheduled').textContent = schedDate.toLocaleString();
+                } else {
+                    document.getElementById('detail-scheduled').textContent = 'Instant / On-Demand';
+                }
+
+                // Format Status Badge
+                const badge = document.getElementById('detail-status-badge');
+                badge.textContent = data.status || 'INVITED';
+                if (data.status === 'COMPLETED') {
+                    badge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-100 text-purple-700 border border-purple-200";
+                } else if (data.status === 'IN_PROGRESS') {
+                    badge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-200 animate-pulse";
+                } else if (data.status === 'EXPIRED') {
+                    badge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200";
+                } else {
+                    badge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-200";
+                }
+
+                // Show Edit button ONLY if INVITED
+                if (data.status === 'INVITED') {
+                    document.getElementById('btn-edit-session').classList.remove('hidden');
+                } else {
+                    document.getElementById('btn-edit-session').classList.add('hidden');
+                }
+
+                // Invite link
+                const inviteUrl = data.invite_url || `${window.location.origin}/sandbox.html?token=${data.id}`;
+                document.getElementById('detail-invite-url').textContent = inviteUrl;
+                document.getElementById('btn-candidate-link').href = inviteUrl;
+
+                lucide.createIcons();
+            } catch (err) {
+                alert(err.message);
+                window.location.href = '/dashboard.html';
+            }
+        }
+
+        function copyDetailInviteLink() {
+            const url = document.getElementById('detail-invite-url').textContent;
+            navigator.clipboard.writeText(url);
+            showToast('Copied candidate magic link to clipboard');
+        }
+
+        // Edit Mode Toggle
+        function toggleEditMode() {
+            if (!currentSessionData || currentSessionData.status !== 'INVITED') {
+                alert('Session is locked from modifications.');
+                return;
+            }
+            document.getElementById('edit-name').value = currentSessionData.candidate_name || '';
+            document.getElementById('edit-email').value = currentSessionData.candidate_email || '';
+            document.getElementById('edit-duration').value = currentSessionData.duration_mins || 45;
+            if (currentSessionData.scheduled_at) {
+                const d = new Date(currentSessionData.scheduled_at);
+                const isoStr = d.toISOString().slice(0, 16);
+                document.getElementById('edit-scheduled').value = isoStr;
+            }
+
+            document.getElementById('session-read-grid').classList.add('hidden');
+            document.getElementById('session-edit-form').classList.remove('hidden');
+        }
+
+        function cancelEditMode() {
+            document.getElementById('session-edit-form').classList.add('hidden');
+            document.getElementById('session-read-grid').classList.remove('hidden');
+        }
+
+        // Save Edit Form
+        document.getElementById('session-edit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-save-session');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Saving...';
+            lucide.createIcons();
+
+            try {
+                const payload = {
+                    candidate_name: document.getElementById('edit-name').value.trim(),
+                    candidate_email: document.getElementById('edit-email').value.trim(),
+                    duration_mins: parseInt(document.getElementById('edit-duration').value) || 45,
+                    scheduled_at: document.getElementById('edit-scheduled').value
+                };
+
+                const res = await fetch(`/api/admin/interview/update?id=${encodeURIComponent(sessionID)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    const txt = await res.text();
+                    throw new Error(txt || 'Failed to update session');
+                }
+
+                showToast('Assessment details successfully updated');
+                cancelEditMode();
+                loadSessionDetail();
+            } catch (err) {
+                alert('Error: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> <span>Save Updates</span>';
+                lucide.createIcons();
+            }
+        });
+
+        // Load Executive Scorecard & God Mode Telemetry
+        async function loadScorecardAndGodMode() {
+            try {
+                const res = await fetch(`/api/telemetry/report?sessionId=${encodeURIComponent(sessionID)}`);
+                if (!res.ok) return;
+                const data = await res.json();
+
+                // Verdict
+                const verdictEl = document.getElementById('scorecard-verdict-badge');
+                if (data.verdict) {
+                    verdictEl.textContent = data.verdict.replace('_', ' ');
+                    if (data.verdict === 'STRONG_HIRE') {
+                        verdictEl.className = "px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-300";
+                    } else if (data.verdict === 'HIRE') {
+                        verdictEl.className = "px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-blue-100 text-blue-700 border border-blue-300";
+                    } else if (data.verdict === 'LEAN_NO_HIRE') {
+                        verdictEl.className = "px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-300";
+                    } else {
+                        verdictEl.className = "px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-300";
+                    }
+                }
+
+                // Metrics
+                if (data.prompt_churn_ratio) document.getElementById('metric-prompt-churn').textContent = data.prompt_churn_ratio;
+                if (data.ai_vs_manual_split) document.getElementById('metric-ai-split').textContent = data.ai_vs_manual_split;
+                if (data.time_to_first_working_state) document.getElementById('metric-ttfws').textContent = data.time_to_first_working_state;
+
+                // Integrity Score
+                if (data.integrity_score !== undefined) {
+                    const intEl = document.getElementById('metric-integrity-score');
+                    intEl.textContent = `Score: ${data.integrity_score} / 100`;
+                    if (data.integrity_score < 70) {
+                        intEl.className = "font-bold text-xs text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded";
+                    }
+                }
+
+                // Proctor Event Logs
+                const proctorContainer = document.getElementById('proctor-log-container');
+                if (data.integrity_timeline && data.integrity_timeline.length > 0) {
+                    proctorContainer.innerHTML = data.integrity_timeline.map(ev => `
+                        <div class="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
+                            <span class="text-rose-600 font-bold">${escapeHtml(ev.type || 'STRIKE')}</span>
+                            <span class="text-slate-600 truncate max-w-xs">${escapeHtml(ev.detail || 'Violation')}</span>
+                        </div>
+                    `).join('');
+                }
+
+                // Candidate Prompts
+                const promptsContainer = document.getElementById('prompts-log-container');
+                const promptsBadge = document.getElementById('prompts-count-badge');
+                if (data.candidate_prompts && data.candidate_prompts.length > 0) {
+                    promptsBadge.textContent = `${data.candidate_prompts.length} captured`;
+                    promptsContainer.innerHTML = data.candidate_prompts.map(p => `
+                        <div class="p-2 bg-white rounded border border-slate-200 space-y-1">
+                            <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                                <span>T+${escapeHtml(p.time || '00:00')}</span>
+                                <span class="text-emerald-600 font-bold">Executed</span>
+                            </div>
+                            <div class="font-mono text-slate-800 text-[11px] bg-slate-50 p-1.5 rounded">${escapeHtml(p.prompt)}</div>
+                        </div>
+                    `).join('');
+                }
+
+                // God Mode Playback Engine
+                activeGodModeTimeline = data.god_mode_timeline || [];
+                renderGodModeScrubber();
+                if (activeGodModeTimeline.length > 0) {
+                    selectGodModeIndex(activeGodModeTimeline.length - 1);
+                }
+
+                lucide.createIcons();
+            } catch (err) {
+                console.error("Error loading scorecard", err);
+            }
+        }
+
+        // God Mode Dynamic Scrubber & Index Selector
+        function renderGodModeScrubber() {
+            const container = document.getElementById('godmode-scrubber-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (!activeGodModeTimeline || activeGodModeTimeline.length === 0) {
+                container.style.gridTemplateColumns = 'repeat(1, minmax(0, 1fr))';
+                container.innerHTML = '<div class="text-slate-500 text-xs text-center py-1">No playback events recorded yet.</div>';
+                return;
+            }
+
+            container.style.gridTemplateColumns = `repeat(${activeGodModeTimeline.length}, minmax(0, 1fr))`;
+
+            activeGodModeTimeline.forEach((item, idx) => {
+                const btn = document.createElement('button');
+                btn.id = 'seg-' + idx;
+                btn.onclick = () => selectGodModeIndex(idx);
+
+                let baseClass = "h-full rounded text-[10px] font-bold flex items-center justify-center transition truncate px-2 whitespace-nowrap ";
+                if (item.zone === 'red') {
+                    baseClass += "bg-red-600/30 hover:bg-red-600/50 border border-red-500/50 text-red-300";
+                } else if (item.zone === 'yellow') {
+                    baseClass += "bg-amber-500/30 hover:bg-amber-500/50 border border-amber-400/50 text-amber-200";
+                } else {
+                    baseClass += "bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/50 text-emerald-300";
+                }
+
+                btn.className = baseClass;
+                btn.textContent = `${item.time_display || '00:00'} • ${item.zone_label || 'Milestone'}`;
+                container.appendChild(btn);
+            });
+        }
+
+        function selectGodModeIndex(idx) {
+            if (!activeGodModeTimeline || activeGodModeTimeline.length === 0) return;
+            if (idx < 0) idx = 0;
+            if (idx >= activeGodModeTimeline.length) idx = activeGodModeTimeline.length - 1;
+            currentGodModeIdx = idx;
+
+            const item = activeGodModeTimeline[idx];
+
+            document.getElementById('godmode-checkpoint-title').textContent = item.title || 'Checkpoint';
+            document.getElementById('godmode-time-display').textContent = item.time_display || '00:00';
+
+            const badge = document.getElementById('godmode-phase-badge');
+            badge.textContent = item.zone_label || 'Phase';
+            if (item.zone === 'green') badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+            else if (item.zone === 'red') badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/40";
+            else if (item.zone === 'yellow') badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40";
+
+            // Chat Stream
+            const chatBox = document.getElementById('godmode-chat-container');
+            chatBox.innerHTML = `
+                <div class="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
+                    <div class="text-[10px] font-mono text-blue-400 uppercase font-bold">Candidate Prompt:</div>
+                    <div class="font-mono text-slate-200 bg-black/40 p-2 rounded">${escapeHtml(item.ai_prompt || '—')}</div>
+                </div>
+                <div class="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
+                    <div class="text-[10px] font-mono text-purple-400 uppercase font-bold">Claude Code Action:</div>
+                    <div class="text-slate-300 leading-relaxed">${escapeHtml(item.ai_response || item.summary || 'Executing task...')}</div>
+                </div>
+            `;
+
+            // Code Snapshot
+            document.getElementById('godmode-file-path').textContent = item.file_path || 'processor.go';
+            document.getElementById('godmode-code-container').textContent = item.code_snapshot || '// File snapshot clean / unmodified';
+
+            // Terminal
+            document.getElementById('godmode-term-container').textContent = item.terminal_output || '$ go test -v -race ./...';
+
+            // Scrubber Highlight
+            for (let i = 0; i < activeGodModeTimeline.length; i++) {
+                const b = document.getElementById('seg-' + i);
+                if (!b) continue;
+                if (i === idx) {
+                    b.classList.add('ring-2', 'ring-white', 'scale-[1.02]', 'brightness-125');
+                } else {
+                    b.classList.remove('ring-2', 'ring-white', 'scale-[1.02]', 'brightness-125');
+                }
+            }
+        }
+
+        // Initialize User Identity in Dropdown
+        async function initAuth() {
+            try {
+                const res = await fetch('/api/admin/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('dropdown-username').textContent = data.username || 'Recruiter';
+                    document.getElementById('dropdown-role').textContent = data.role === 'admin' ? 'Super Administrator' : 'Company Recruiter';
+                }
+            } catch (err) {}
+        }
+
+        initAuth();
+        loadSessionDetail();
+        loadScorecardAndGodMode();
+    </script>
+</body>
+</html>

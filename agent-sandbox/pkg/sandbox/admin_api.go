@@ -1,10 +1,13 @@
 package sandbox
 
 import (
+	"archive/zip"
+	"bytes"
 	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -14,18 +17,20 @@ import (
 )
 
 type InterviewSession struct {
-	ID                string    `json:"id"`
-	CandidateName     string    `json:"candidate_name"`
-	CandidateEmail    string    `json:"candidate_email"`
-	ScenarioID        string    `json:"scenario_id"`
-	ScenarioTitle     string    `json:"scenario_title"`
-	APIKey            string    `json:"api_key,omitempty"`
-	TargetProvider    string    `json:"target_provider"`
-	DurationMins      int       `json:"duration_mins"`
-	Status            string    `json:"status"` // "INVITED", "IN_PROGRESS", "COMPLETED"
-	RecruiterUsername string    `json:"recruiter_username,omitempty"`
-	CreatedAt         time.Time `json:"created_at"`
-	InviteURL         string    `json:"invite_url"`
+	ID                string     `json:"id"`
+	CandidateName     string     `json:"candidate_name"`
+	CandidateEmail    string     `json:"candidate_email"`
+	ScenarioID        string     `json:"scenario_id"`
+	ScenarioTitle     string     `json:"scenario_title"`
+	APIKey            string     `json:"api_key,omitempty"`
+	TargetProvider    string     `json:"target_provider"`
+	DurationMins      int        `json:"duration_mins"`
+	Status            string     `json:"status"` // "INVITED", "IN_PROGRESS", "COMPLETED", "EXPIRED"
+	RecruiterUsername string     `json:"recruiter_username,omitempty"`
+	ScheduledAt       *time.Time `json:"scheduled_at,omitempty"`
+	ExpiresAt         *time.Time `json:"expires_at,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	InviteURL         string     `json:"invite_url"`
 }
 
 // HandleListScenarios lists all available scenario templates
@@ -156,6 +161,7 @@ func HandleCreateInterview(baseURL string) http.HandlerFunc {
 			APIKey         string `json:"api_key"`
 			TargetProvider string `json:"target_provider"`
 			DurationMins   int    `json:"duration_mins"`
+			ScheduledAt    string `json:"scheduled_at"`
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -179,6 +185,20 @@ func HandleCreateInterview(baseURL string) http.HandlerFunc {
 
 		inviteURL := fmt.Sprintf("%s/sandbox.html?token=%s", baseURL, sessionID)
 
+		// Parse scheduled_at if provided
+		var schedTime *time.Time
+		var schedVal any
+		if strings.TrimSpace(req.ScheduledAt) != "" {
+			t, err := time.Parse(time.RFC3339, req.ScheduledAt)
+			if err != nil {
+				t, err = time.Parse("2006-01-02T15:04", req.ScheduledAt)
+			}
+			if err == nil {
+				schedTime = &t
+				schedVal = t
+			}
+		}
+
 		// Encrypt API key with AES-256-GCM before database persistence
 		storedKey := ""
 		if strings.TrimSpace(req.APIKey) != "" {
@@ -199,12 +219,13 @@ func HandleCreateInterview(baseURL string) http.HandlerFunc {
 			DurationMins:      req.DurationMins,
 			Status:            "INVITED",
 			RecruiterUsername: recruiter,
+			ScheduledAt:       schedTime,
 			CreatedAt:         time.Now(),
 			InviteURL:         inviteURL,
 		}
 
-		_, err := DB.Exec(`INSERT INTO interviews (id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, cohort_id, recruiter_username, created_at, invite_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			session.ID, session.CandidateName, session.CandidateEmail, session.ScenarioID, session.ScenarioTitle, session.APIKey, session.TargetProvider, session.DurationMins, session.Status, "", session.RecruiterUsername, session.CreatedAt, session.InviteURL)
+		_, err := DB.Exec(`INSERT INTO interviews (id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, cohort_id, recruiter_username, scheduled_at, created_at, invite_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			session.ID, session.CandidateName, session.CandidateEmail, session.ScenarioID, session.ScenarioTitle, session.APIKey, session.TargetProvider, session.DurationMins, session.Status, "", session.RecruiterUsername, schedVal, session.CreatedAt, session.InviteURL)
 		if err != nil {
 			log.Printf("Error: %v", err)
 			http.Error(w, "Database error", http.StatusInternalServerError)
@@ -226,9 +247,9 @@ func HandleListInterviews(w http.ResponseWriter, r *http.Request) {
 	var rows *sql.Rows
 	var err error
 	if role == "admin" {
-		rows, err = DB.Query(`SELECT id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, COALESCE(recruiter_username, 'admin'), created_at, invite_url FROM interviews ORDER BY created_at DESC`)
+		rows, err = DB.Query(`SELECT id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, COALESCE(recruiter_username, 'admin'), scheduled_at, expires_at, created_at, invite_url FROM interviews ORDER BY created_at DESC`)
 	} else {
-		rows, err = DB.Query(`SELECT id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, COALESCE(recruiter_username, 'admin'), created_at, invite_url FROM interviews WHERE recruiter_username = ? ORDER BY created_at DESC`, user)
+		rows, err = DB.Query(`SELECT id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, COALESCE(recruiter_username, 'admin'), scheduled_at, expires_at, created_at, invite_url FROM interviews WHERE recruiter_username = ? ORDER BY created_at DESC`, user)
 	}
 
 	if err != nil {
@@ -241,7 +262,14 @@ func HandleListInterviews(w http.ResponseWriter, r *http.Request) {
 	list := make([]*InterviewSession, 0)
 	for rows.Next() {
 		var s InterviewSession
-		if err := rows.Scan(&s.ID, &s.CandidateName, &s.CandidateEmail, &s.ScenarioID, &s.ScenarioTitle, &s.APIKey, &s.TargetProvider, &s.DurationMins, &s.Status, &s.RecruiterUsername, &s.CreatedAt, &s.InviteURL); err == nil {
+		var schedAt, expAt sql.NullTime
+		if err := rows.Scan(&s.ID, &s.CandidateName, &s.CandidateEmail, &s.ScenarioID, &s.ScenarioTitle, &s.APIKey, &s.TargetProvider, &s.DurationMins, &s.Status, &s.RecruiterUsername, &schedAt, &expAt, &s.CreatedAt, &s.InviteURL); err == nil {
+			if schedAt.Valid {
+				s.ScheduledAt = &schedAt.Time
+			}
+			if expAt.Valid {
+				s.ExpiresAt = &expAt.Time
+			}
 			s.APIKey = MaskAPIKey(s.APIKey)
 			list = append(list, &s)
 		}
@@ -371,12 +399,24 @@ func HandleVerifyCandidate(w http.ResponseWriter, r *http.Request) {
 
 	var candName, candEmail, scenarioTitle, status string
 	var durationMins int
-	var expiresAt sql.NullTime
-	err := DB.QueryRow(`SELECT candidate_name, candidate_email, scenario_title, status, duration_mins, expires_at FROM interviews WHERE id = ?`, token).
-		Scan(&candName, &candEmail, &scenarioTitle, &status, &durationMins, &expiresAt)
+	var scheduledAt, expiresAt sql.NullTime
+	err := DB.QueryRow(`SELECT candidate_name, candidate_email, scenario_title, status, duration_mins, scheduled_at, expires_at FROM interviews WHERE id = ?`, token).
+		Scan(&candName, &candEmail, &scenarioTitle, &status, &durationMins, &scheduledAt, &expiresAt)
 	if err == nil {
 		if status == "COMPLETED" {
 			http.Error(w, "Assessment already completed.", http.StatusForbidden)
+			return
+		}
+
+		if status == "EXPIRED" {
+			http.Error(w, "Assessment start window has expired. Contact your recruiter.", http.StatusForbidden)
+			return
+		}
+
+		// 5-minute start window check: if scheduled_at is set, candidate must start within 5 minutes of scheduled time
+		if scheduledAt.Valid && time.Now().After(scheduledAt.Time.Add(5*time.Minute)) && status == "INVITED" {
+			_, _ = DB.Exec(`UPDATE interviews SET status = 'EXPIRED' WHERE id = ?`, token)
+			http.Error(w, "Assessment start window has expired (must start within 5 minutes of scheduled time). Please contact your recruiter.", http.StatusForbidden)
 			return
 		}
 		
@@ -392,17 +432,13 @@ func HandleVerifyCandidate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Transition status to IN_PROGRESS upon verification
-		if status == "INVITED" {
-			exp := time.Now().Add(time.Duration(durationMins) * time.Minute)
-			_, _ = DB.Exec(`UPDATE interviews SET status = 'IN_PROGRESS', expires_at = ? WHERE id = ?`, exp, token)
-		}
-
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"verified":       true,
 			"candidate_name": candName,
 			"scenario_title": scenarioTitle,
+			"duration_mins":  durationMins,
+			"status":         status,
 		})
 		return
 	}
@@ -431,9 +467,329 @@ func HandleVerifyCandidate(w http.ResponseWriter, r *http.Request) {
 			"verified":       true,
 			"candidate_name": name,
 			"scenario_title": cohortTitle,
+			"duration_mins":  45,
+			"status":         "INVITED",
 		})
 		return
 	}
 
 	http.Error(w, "Assessment session not found or invalid token.", http.StatusNotFound)
+}
+
+// HandleGetInterviewDetail returns full session details for session.html
+// GET /api/admin/interview/detail?id=cand_...
+func HandleGetInterviewDetail(w http.ResponseWriter, r *http.Request) {
+	user, role := GetAuthenticatedUser(r)
+	id := strings.TrimSpace(r.URL.Query().Get("id"))
+	if id == "" {
+		http.Error(w, "Missing session id parameter", http.StatusBadRequest)
+		return
+	}
+
+	var s InterviewSession
+	var scheduledAt, expiresAt sql.NullTime
+	var recruiter string
+	err := DB.QueryRow(`SELECT id, candidate_name, candidate_email, scenario_id, scenario_title, api_key, target_provider, duration_mins, status, COALESCE(recruiter_username, 'admin'), scheduled_at, expires_at, created_at, invite_url FROM interviews WHERE id = ?`, id).
+		Scan(&s.ID, &s.CandidateName, &s.CandidateEmail, &s.ScenarioID, &s.ScenarioTitle, &s.APIKey, &s.TargetProvider, &s.DurationMins, &s.Status, &recruiter, &scheduledAt, &expiresAt, &s.CreatedAt, &s.InviteURL)
+	if err != nil {
+		http.Error(w, "Assessment session not found", http.StatusNotFound)
+		return
+	}
+
+	// Recruiter can only view their own sessions; Super Admin can view all
+	if role != "admin" && recruiter != user {
+		http.Error(w, "Forbidden: You do not have access to view this assessment", http.StatusForbidden)
+		return
+	}
+
+	s.RecruiterUsername = recruiter
+	if scheduledAt.Valid {
+		s.ScheduledAt = &scheduledAt.Time
+	}
+	if expiresAt.Valid {
+		s.ExpiresAt = &expiresAt.Time
+	}
+	s.APIKey = MaskAPIKey(s.APIKey)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(s)
+}
+
+// HandleUpdateInterview updates session details (allowed only while status == 'INVITED')
+// POST /api/admin/interview/update?id=cand_...
+func HandleUpdateInterview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, role := GetAuthenticatedUser(r)
+	id := strings.TrimSpace(r.URL.Query().Get("id"))
+	if id == "" {
+		http.Error(w, "Missing session id parameter", http.StatusBadRequest)
+		return
+	}
+
+	var currentStatus, currentRecruiter string
+	err := DB.QueryRow("SELECT status, COALESCE(recruiter_username, 'admin') FROM interviews WHERE id = ?", id).Scan(&currentStatus, &currentRecruiter)
+	if err != nil {
+		http.Error(w, "Assessment session not found", http.StatusNotFound)
+		return
+	}
+
+	if role != "admin" && currentRecruiter != user {
+		http.Error(w, "Forbidden: You do not own this assessment session", http.StatusForbidden)
+		return
+	}
+
+	// Strictly lock editability once session moves beyond INVITED
+	if currentStatus != "INVITED" {
+		http.Error(w, fmt.Sprintf("Assessment session cannot be edited because it is %s. Edits are only permitted prior to candidate entry.", currentStatus), http.StatusForbidden)
+		return
+	}
+
+	var req struct {
+		CandidateName  string `json:"candidate_name"`
+		CandidateEmail string `json:"candidate_email"`
+		ScenarioID     string `json:"scenario_id"`
+		ScenarioTitle  string `json:"scenario_title"`
+		DurationMins   int    `json:"duration_mins"`
+		ScheduledAt    string `json:"scheduled_at"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request JSON", http.StatusBadRequest)
+		return
+	}
+
+	var schedVal any
+	if strings.TrimSpace(req.ScheduledAt) != "" {
+		t, err := time.Parse(time.RFC3339, req.ScheduledAt)
+		if err != nil {
+			t, err = time.Parse("2006-01-02T15:04", req.ScheduledAt)
+		}
+		if err == nil {
+			schedVal = t
+		}
+	}
+
+	_, err = DB.Exec(`UPDATE interviews SET 
+		candidate_name = CASE WHEN ? != '' THEN ? ELSE candidate_name END,
+		candidate_email = CASE WHEN ? != '' THEN ? ELSE candidate_email END,
+		scenario_id = CASE WHEN ? != '' THEN ? ELSE scenario_id END,
+		scenario_title = CASE WHEN ? != '' THEN ? ELSE scenario_title END,
+		duration_mins = CASE WHEN ? > 0 THEN ? ELSE duration_mins END,
+		scheduled_at = ?
+		WHERE id = ?`,
+		req.CandidateName, req.CandidateName,
+		req.CandidateEmail, req.CandidateEmail,
+		req.ScenarioID, req.ScenarioID,
+		req.ScenarioTitle, req.ScenarioTitle,
+		req.DurationMins, req.DurationMins,
+		schedVal, id)
+	if err != nil {
+		log.Printf("Error updating interview %s: %v", id, err)
+		http.Error(w, "Database error updating assessment", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"status":  "ok",
+		"message": "Assessment details updated successfully",
+	})
+}
+
+func extractZip(zipReader *zip.Reader, destDir string) error {
+	cleanDest := filepath.Clean(destDir)
+	for _, f := range zipReader.File {
+		cleanName := filepath.Clean(f.Name)
+		if strings.HasPrefix(cleanName, "..") || filepath.IsAbs(cleanName) {
+			continue
+		}
+		targetPath := filepath.Join(cleanDest, cleanName)
+		if !strings.HasPrefix(targetPath, cleanDest+string(os.PathSeparator)) && targetPath != cleanDest {
+			continue
+		}
+
+		if f.FileInfo().IsDir() {
+			_ = os.MkdirAll(targetPath, 0755)
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+			return err
+		}
+
+		outFile, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return err
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			outFile.Close()
+			return err
+		}
+
+		_, err = io.Copy(outFile, rc)
+		rc.Close()
+		outFile.Close()
+		if err != nil {
+			return err
+		}
+
+		if strings.HasSuffix(targetPath, ".sh") {
+			_ = os.Chmod(targetPath, 0755)
+		}
+	}
+	return nil
+}
+
+// HandleUploadScenario allows admins/recruiters to create a custom scenario with problem statement, cards, and workspace ZIP
+// POST /api/admin/scenarios/upload
+func HandleUploadScenario(scenariosBaseDir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Allow up to 50MB uploads
+		if err := r.ParseMultipartForm(50 << 20); err != nil {
+			http.Error(w, "Upload too large or invalid multipart form", http.StatusBadRequest)
+			return
+		}
+
+		title := strings.TrimSpace(r.FormValue("title"))
+		if title == "" {
+			http.Error(w, "Scenario title is required", http.StatusBadRequest)
+			return
+		}
+
+		track := strings.TrimSpace(r.FormValue("track"))
+		if track == "" {
+			track = "Custom Systems Engineering"
+		}
+
+		language := strings.TrimSpace(r.FormValue("language"))
+		if language == "" {
+			language = "go"
+		}
+
+		verifyCmd := strings.TrimSpace(r.FormValue("verify_command"))
+		if verifyCmd == "" {
+			verifyCmd = "bash verify.sh"
+		}
+
+		durationMins := 45
+		if dStr := strings.TrimSpace(r.FormValue("duration_minutes")); dStr != "" {
+			var d int
+			if _, err := fmt.Sscanf(dStr, "%d", &d); err == nil && d > 0 {
+				durationMins = d
+			}
+		}
+
+		// Slugify title for ID
+		slug := strings.ToLower(title)
+		slug = strings.ReplaceAll(slug, " ", "-")
+		var sb strings.Builder
+		for _, ch := range slug {
+			if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' {
+				sb.WriteRune(ch)
+			}
+		}
+		scenarioID := sb.String()
+		if scenarioID == "" {
+			scenarioID = fmt.Sprintf("custom-%d", time.Now().Unix())
+		}
+
+		scenarioDir := filepath.Join(scenariosBaseDir, scenarioID)
+		workspaceDir := filepath.Join(scenarioDir, "workspace")
+		cardsDir := filepath.Join(scenarioDir, "cards")
+		evalDir := filepath.Join(scenarioDir, "evaluation")
+
+		_ = os.MkdirAll(workspaceDir, 0755)
+		_ = os.MkdirAll(cardsDir, 0755)
+		_ = os.MkdirAll(evalDir, 0755)
+
+		// Unzip workspace zip if uploaded
+		file, _, err := r.FormFile("workspace_zip")
+		if err == nil && file != nil {
+			defer file.Close()
+			buf := new(bytes.Buffer)
+			_, _ = io.Copy(buf, file)
+			zipReader, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+			if err == nil {
+				_ = extractZip(zipReader, workspaceDir)
+			}
+		}
+
+		// Write manifest.json
+		manifest := map[string]any{
+			"id":               scenarioID,
+			"title":            title,
+			"track":            track,
+			"duration_minutes": durationMins,
+			"language":         language,
+			"verification": map[string]any{
+				"command": verifyCmd,
+			},
+		}
+		mBytes, _ := json.MarshalIndent(manifest, "", "  ")
+		_ = os.WriteFile(filepath.Join(scenarioDir, "manifest.json"), mBytes, 0644)
+
+		// Write cards
+		writeCard := func(filename, id, cardTitle, badge, badgeColor, summary, detail string) {
+			if cardTitle == "" {
+				cardTitle = "Problem Statement"
+			}
+			card := map[string]any{
+				"id":          id,
+				"tab_title":   cardTitle,
+				"title":       cardTitle,
+				"badge":       badge,
+				"badge_color": badgeColor,
+				"summary":     summary,
+				"stack_trace": detail,
+			}
+			b, _ := json.MarshalIndent(card, "", "  ")
+			_ = os.WriteFile(filepath.Join(cardsDir, filename), b, 0644)
+		}
+
+		c1Title := r.FormValue("card1_title")
+		if c1Title == "" {
+			c1Title = "1. Context"
+		}
+		c1Sum := r.FormValue("card1_summary")
+		if c1Sum == "" {
+			c1Sum = r.FormValue("problem_statement")
+		}
+		writeCard("01_context.json", "card_1", c1Title, "Incident", "#f43f5e", c1Sum, r.FormValue("card1_detail"))
+
+		c2Title := r.FormValue("card2_title")
+		if c2Title == "" {
+			c2Title = "2. Architecture"
+		}
+		writeCard("02_architecture.json", "card_2", c2Title, "System Flow", "#6366f1", r.FormValue("card2_summary"), r.FormValue("card2_detail"))
+
+		c3Title := r.FormValue("card3_title")
+		if c3Title == "" {
+			c3Title = "3. Constraints"
+		}
+		writeCard("03_constraints.json", "card_3", c3Title, "Rules", "#f59e0b", r.FormValue("card3_summary"), r.FormValue("card3_detail"))
+
+		c4Title := r.FormValue("card4_title")
+		if c4Title == "" {
+			c4Title = "4. Deliverables"
+		}
+		writeCard("04_deliverables.json", "card_4", c4Title, "Deliverables", "#10b981", r.FormValue("card4_summary"), r.FormValue("card4_detail"))
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":      "ok",
+			"scenario_id": scenarioID,
+			"title":       title,
+			"message":     "Custom assessment scenario and workspace provisioned successfully",
+		})
+	}
 }

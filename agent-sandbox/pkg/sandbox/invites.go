@@ -212,11 +212,17 @@ func HandlePilotRequest(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HandleGenerateInvite allows authenticated recruiters/admins to issue new invite links.
+// HandleGenerateInvite allows Super Admin to issue new invite links.
 // POST /api/admin/invites/generate
 func HandleGenerateInvite(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, role := GetAuthenticatedUser(r)
+	if role != "admin" {
+		http.Error(w, "Forbidden: Only Super Admin can generate company invites", http.StatusForbidden)
 		return
 	}
 
@@ -257,9 +263,15 @@ func HandleGenerateInvite(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HandleListInvites returns all generated invites for the admin console.
+// HandleListInvites returns all generated invites for the admin console (Super Admin only).
 // GET /api/admin/invites
 func HandleListInvites(w http.ResponseWriter, r *http.Request) {
+	_, role := GetAuthenticatedUser(r)
+	if role != "admin" {
+		http.Error(w, "Forbidden: Only Super Admin can view company invites", http.StatusForbidden)
+		return
+	}
+
 	rows, err := DB.Query("SELECT code, company_name, email, used, COALESCE(used_by, ''), created_at, used_at FROM recruiter_invites ORDER BY created_at DESC")
 	if err != nil {
 		log.Printf("Error: %v", err)

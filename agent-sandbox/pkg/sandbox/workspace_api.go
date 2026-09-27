@@ -346,3 +346,90 @@ func HandleGetSessionConfig() http.HandlerFunc {
 		})
 	}
 }
+
+// HandleSessionStart triggers the start of an assessment session when candidate enters fullscreen mode.
+// POST /api/session/start
+func HandleSessionStart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	sessionID := strings.TrimSpace(r.URL.Query().Get("sessionId"))
+	if sessionID == "" {
+		var req struct {
+			SessionID string `json:"sessionId"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		sessionID = strings.TrimSpace(req.SessionID)
+	}
+
+	if sessionID == "" {
+		http.Error(w, "Missing sessionId parameter", http.StatusBadRequest)
+		return
+	}
+
+	if DB == nil {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":        "IN_PROGRESS",
+			"duration_mins": 45,
+			"remaining_sec": 45 * 60,
+		})
+		return
+	}
+
+	var status string
+	var durationMins int
+	var expiresAt sql.NullTime
+	err := DB.QueryRow("SELECT status, duration_mins, expires_at FROM interviews WHERE id = ?", sessionID).
+		Scan(&status, &durationMins, &expiresAt)
+	if err != nil {
+		// Session might be demo or cohort, allow graceful pass
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"status":        "IN_PROGRESS",
+			"duration_mins": 45,
+			"remaining_sec": 45 * 60,
+		})
+		return
+	}
+
+	if status == "COMPLETED" || status == "EXPIRED" {
+		http.Error(w, fmt.Sprintf("Assessment session is already %s", status), http.StatusForbidden)
+		return
+	}
+
+	if durationMins <= 0 {
+		durationMins = 45
+	}
+
+	remainingSecs := durationMins * 60
+
+	if status == "INVITED" {
+		// Candidate entered fullscreen: Start timer NOW!
+		exp := time.Now().Add(time.Duration(durationMins) * time.Minute)
+		_, err := DB.Exec("UPDATE interviews SET status = 'IN_PROGRESS', expires_at = ? WHERE id = ?", exp, sessionID)
+		if err != nil {
+			log.Printf("[session/start] DB error updating session: %v", err)
+		}
+		remainingSecs = durationMins * 60
+	} else if status == "IN_PROGRESS" {
+		if expiresAt.Valid {
+			rem := int(time.Until(expiresAt.Time).Seconds())
+			if rem <= 0 {
+				rem = 0
+				_, _ = DB.Exec("UPDATE interviews SET status = 'COMPLETED' WHERE id = ?", sessionID)
+			}
+			remainingSecs = rem
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"status":        "IN_PROGRESS",
+		"duration_mins": durationMins,
+		"remaining_sec": remainingSecs,
+	})
+}
+
