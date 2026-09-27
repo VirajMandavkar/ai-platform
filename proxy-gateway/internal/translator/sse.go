@@ -33,6 +33,18 @@ func TranslateAnthropicToOpenAI(bodyBytes []byte, targetModel string) ([]byte, e
 		return nil, fmt.Errorf("unmarshal anthropic request: %w", err)
 	}
 
+	if req.Model != "" {
+		cleanModel := req.Model
+		if idx := strings.Index(cleanModel, "\x1b"); idx != -1 {
+			cleanModel = cleanModel[:idx]
+		}
+		if strings.HasPrefix(cleanModel, "claude-") {
+			targetModel = "anthropic/" + cleanModel
+		} else {
+			targetModel = cleanModel
+		}
+	}
+
 	openAIMessages := make([]map[string]any, 0)
 
 	// 1. Flatten system prompt
