@@ -971,7 +971,7 @@
         async function loadWorkspaceTree() {
             const container = document.getElementById('file-tree-container');
             try {
-                const res = await fetch('/api/workspace/tree');
+                const res = await fetch('/api/workspace/tree?sessionId=${encodeURIComponent(activeToken)}');
                 const nodes = await res.json();
                 container.innerHTML = '';
                 renderTreeNodes(nodes, container);
@@ -1014,7 +1014,7 @@
             editorTextarea.value = "Loading file content...";
 
             try {
-                const res = await fetch(`/api/workspace/file?path=${encodeURIComponent(filePath)}`);
+                const res = await fetch(`/api/workspace/file?sessionId=${encodeURIComponent(activeToken)}&path=${encodeURIComponent(filePath)}`);
                 const data = await res.json();
                 editorTextarea.value = data.content || "";
             } catch (err) {
@@ -1030,7 +1030,7 @@
             lucide.createIcons();
 
             try {
-                const res = await fetch('/api/workspace/file', {
+                const res = await fetch('/api/workspace/file?sessionId=' + encodeURIComponent(activeToken), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

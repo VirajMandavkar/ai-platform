@@ -111,11 +111,10 @@ func main() {
 	http.HandleFunc("/ws", handleWS)
 
 	scenarioDir := "./scenarios/payments-triage"
-	workspaceDir := "./workspace"
 
 	http.HandleFunc("/api/scenario", sandbox.HandleGetScenario(scenarioDir))
-	http.HandleFunc("/api/workspace/tree", sandbox.HandleGetWorkspaceTree(workspaceDir))
-	http.HandleFunc("/api/workspace/file", sandbox.HandleGetWorkspaceFile(workspaceDir))
+	http.HandleFunc("/api/workspace/tree", sandbox.HandleGetWorkspaceTree())
+	http.HandleFunc("/api/workspace/file", sandbox.HandleGetWorkspaceFile())
 	http.HandleFunc("/api/workspace/verify", sandbox.HandleRunVerification())
 	http.HandleFunc("/api/workspace/download", sandbox.HandleDownloadWorkspace())
 	http.HandleFunc("/api/telemetry/event", telemetry.HandlePostEvent)

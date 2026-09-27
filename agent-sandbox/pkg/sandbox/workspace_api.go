@@ -72,8 +72,14 @@ func HandleGetScenario(scenarioDir string) http.HandlerFunc {
 }
 
 // HandleGetWorkspaceTree returns the tree structure of workspace files
-func HandleGetWorkspaceTree(workspaceDir string) http.HandlerFunc {
+func HandleGetWorkspaceTree() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		sessionID := r.URL.Query().Get("sessionId")
+		if sessionID == "" {
+			sessionID = "default-session"
+		}
+		workspaceDir, _ := filepath.Abs(fmt.Sprintf("./workspaces/%s", sessionID))
+
 		tree, err := buildTree(workspaceDir, "")
 		if err != nil {
 			log.Printf("Error: %v", err)
@@ -124,8 +130,14 @@ func buildTree(root, relPath string) ([]*FileNode, error) {
 }
 
 // HandleGetWorkspaceFile returns file content for code viewer or saves file edits
-func HandleGetWorkspaceFile(workspaceDir string) http.HandlerFunc {
+func HandleGetWorkspaceFile() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		sessionID := r.URL.Query().Get("sessionId")
+		if sessionID == "" {
+			sessionID = "default-session"
+		}
+		workspaceDir, _ := filepath.Abs(fmt.Sprintf("./workspaces/%s", sessionID))
+
 		if r.Method == http.MethodPost {
 			var payload struct {
 				Path    string `json:"path"`
