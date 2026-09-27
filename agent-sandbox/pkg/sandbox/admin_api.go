@@ -295,6 +295,41 @@ func HandlePlatformOverview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Fetch organizations
+	recRows, err := DB.Query("SELECT username, role FROM recruiters ORDER BY id DESC LIMIT 20")
+	var organizations []map[string]any
+	if err == nil {
+		defer recRows.Close()
+		for recRows.Next() {
+			var username, role string
+			if err := recRows.Scan(&username, &role); err == nil {
+				organizations = append(organizations, map[string]any{
+					"username": username,
+					"role":     role,
+				})
+			}
+		}
+	}
+
+	// Fetch recent interviews globally
+	intRows, err := DB.Query("SELECT id, candidate_name, candidate_email, status, recruiter_username FROM interviews ORDER BY id DESC LIMIT 20")
+	var globalInterviews []map[string]any
+	if err == nil {
+		defer intRows.Close()
+		for intRows.Next() {
+			var id, name, email, status, recruiter string
+			if err := intRows.Scan(&id, &name, &email, &status, &recruiter); err == nil {
+				globalInterviews = append(globalInterviews, map[string]any{
+					"id":                 id,
+					"candidate_name":     name,
+					"candidate_email":    email,
+					"status":             status,
+					"recruiter_username": recruiter,
+				})
+			}
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"total_interviews":     totalInterviews,
@@ -302,6 +337,8 @@ func HandlePlatformOverview(w http.ResponseWriter, r *http.Request) {
 		"total_recruiters":     totalRecruiters,
 		"total_pilot_requests": totalPilotRequests,
 		"pilot_requests":       requests,
+		"organizations":        organizations,
+		"global_interviews":    globalInterviews,
 	})
 }
 

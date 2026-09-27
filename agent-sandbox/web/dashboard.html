@@ -467,19 +467,8 @@
                 </div>
 
                 <!-- Color-Coded Segments Progress Bar -->
-                <div class="grid grid-cols-4 gap-1.5 h-8 bg-slate-900 rounded-lg p-1 border border-slate-800">
-                    <button id="seg-0" onclick="selectGodModeIndex(0)" class="h-full rounded bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/50 text-[10px] font-bold text-emerald-300 flex items-center justify-center transition">
-                        02:15 • AI Scaffolding
-                    </button>
-                    <button id="seg-1" onclick="selectGodModeIndex(1)" class="h-full rounded bg-red-600/40 hover:bg-red-600/60 border border-red-500 text-[10px] font-bold text-red-200 flex items-center justify-center transition">
-                        11:40 • ⚠️ Race Condition (Failing)
-                    </button>
-                    <button id="seg-2" onclick="selectGodModeIndex(2)" class="h-full rounded bg-amber-500/30 hover:bg-amber-500/50 border border-amber-400/50 text-[10px] font-bold text-amber-200 flex items-center justify-center transition">
-                        19:05 • ✍️ Human Edit (Took Wheel)
-                    </button>
-                    <button id="seg-3" onclick="selectGodModeIndex(3)" class="h-full rounded bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/50 text-[10px] font-bold text-emerald-300 flex items-center justify-center transition">
-                        24:30 • ✓ Verified Pass
-                    </button>
+                <div id="godmode-scrubber-container" class="grid gap-1.5 h-8 bg-slate-900 rounded-lg p-1 border border-slate-800" style="grid-template-columns: repeat(1, minmax(0, 1fr));">
+                    <!-- Loaded dynamically -->
                 </div>
             </div>
         </div>
@@ -1081,12 +1070,48 @@
                 document.getElementById('godmode-session-id').textContent = sessionId;
                 document.getElementById('godmode-candidate-name').textContent = data.candidate_summary?.candidate_name || 'Candidate';
 
-                selectGodModeIndex(1); // Default to the red zone struggle so hiring manager sees the crux immediately!
+                
+                renderGodModeScrubber();
+                selectGodModeIndex(activeGodModeTimeline.length > 0 ? activeGodModeTimeline.length - 1 : 0);
+
                 document.getElementById('godmode-modal').classList.remove('hidden');
                 if (window.lucide) lucide.createIcons();
             } catch (err) {
                 showToast("Failed to load God Mode telemetry: " + err.message, true);
             }
+        }
+
+        
+        function renderGodModeScrubber() {
+            const container = document.getElementById('godmode-scrubber-container');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            if (!activeGodModeTimeline || activeGodModeTimeline.length === 0) {
+                container.style.gridTemplateColumns = `repeat(1, minmax(0, 1fr))`;
+                return;
+            }
+            
+            container.style.gridTemplateColumns = `repeat(${activeGodModeTimeline.length}, minmax(0, 1fr))`;
+            
+            activeGodModeTimeline.forEach((item, idx) => {
+                const btn = document.createElement('button');
+                btn.id = 'seg-' + idx;
+                btn.onclick = () => selectGodModeIndex(idx);
+                
+                let baseClass = "h-full rounded text-[10px] font-bold flex items-center justify-center transition truncate px-2 whitespace-nowrap ";
+                if (item.zone === 'red') {
+                    baseClass += "bg-red-600/30 hover:bg-red-600/50 border border-red-500/50 text-red-300";
+                } else if (item.zone === 'yellow') {
+                    baseClass += "bg-amber-500/30 hover:bg-amber-500/50 border border-amber-400/50 text-amber-200";
+                } else {
+                    baseClass += "bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/50 text-emerald-300";
+                }
+                
+                btn.className = baseClass;
+                btn.textContent = `${item.time_display} • ${item.zone_label || 'Action'}`;
+                container.appendChild(btn);
+            });
         }
 
         function selectGodModeIndex(idx) {
@@ -1305,6 +1330,43 @@
                             </tr>
                         `).join('');
                         if (window.lucide) lucide.createIcons();
+                }
+                
+                // Render Organizations
+                const orgsTbody = document.getElementById('platform-orgs-tbody');
+                if (orgsTbody) {
+                    if (!data.organizations || data.organizations.length === 0) {
+                        orgsTbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-400 text-xs">No organizations registered.</td></tr>`;
+                    } else {
+                        orgsTbody.innerHTML = data.organizations.map(o => `
+                            <tr class="border-b border-slate-100 hover:bg-slate-50/60 transition text-xs">
+                                <td class="px-6 py-4 font-bold text-slate-900">${escapeHtml(o.username)}</td>
+                                <td class="px-6 py-4 text-slate-500 font-mono">${escapeHtml(o.role)}</td>
+                                <td class="px-6 py-4 text-right"><span class="px-2 py-1 bg-emerald-50 text-emerald-600 rounded font-bold text-[10px]">ACTIVE</span></td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+
+                // Render Global Sessions
+                const sessTbody = document.getElementById('platform-sessions-tbody');
+                if (sessTbody) {
+                    if (!data.global_interviews || data.global_interviews.length === 0) {
+                        sessTbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400 text-xs">No candidate sessions active.</td></tr>`;
+                    } else {
+                        sessTbody.innerHTML = data.global_interviews.map(i => {
+                            let badge = `<span class="px-2 py-1 bg-slate-100 text-slate-500 rounded font-bold text-[10px]">${escapeHtml(i.status)}</span>`;
+                            if (i.status === 'COMPLETED') badge = `<span class="px-2 py-1 bg-purple-50 text-purple-600 rounded font-bold text-[10px]">${escapeHtml(i.status)}</span>`;
+                            if (i.status === 'IN_PROGRESS') badge = `<span class="px-2 py-1 bg-amber-50 text-amber-600 rounded font-bold text-[10px]">${escapeHtml(i.status)}</span>`;
+                            
+                            return `
+                            <tr class="border-b border-slate-100 hover:bg-slate-50/60 transition text-xs">
+                                <td class="px-6 py-4 text-slate-400 font-mono text-[10px] truncate max-w-[120px]">${escapeHtml(i.id)}</td>
+                                <td class="px-6 py-4 font-bold text-slate-900">${escapeHtml(i.candidate_name)} <br><span class="text-[10px] text-slate-500 font-normal">${escapeHtml(i.candidate_email)}</span></td>
+                                <td class="px-6 py-4 text-slate-500 font-mono">${escapeHtml(i.recruiter_username)}</td>
+                                <td class="px-6 py-4 text-right">${badge}</td>
+                            </tr>
+                        `}).join('');
                     }
                 }
             } catch (err) {
