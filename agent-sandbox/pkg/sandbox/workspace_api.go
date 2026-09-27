@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"database/sql"
 	"archive/zip"
 	"bytes"
 	"context"
@@ -319,17 +320,29 @@ func HandleGetSessionConfig() http.HandlerFunc {
 		}
 
 		durationMins := 45
+		remainingSecs := 45 * 60
 		if DB != nil {
 			var mins int
-			err := DB.QueryRow("SELECT duration_mins FROM interviews WHERE id = ?", sessionID).Scan(&mins)
+			var expiresAt sql.NullTime
+			err := DB.QueryRow("SELECT duration_mins, expires_at FROM interviews WHERE id = ?", sessionID).Scan(&mins, &expiresAt)
 			if err == nil && mins > 0 {
 				durationMins = mins
+				remainingSecs = mins * 60
+				
+				if expiresAt.Valid {
+					rem := int(time.Until(expiresAt.Time).Seconds())
+					if rem < 0 {
+						rem = 0
+					}
+					remainingSecs = rem
+				}
 			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"duration_mins": durationMins,
+			"remaining_sec": remainingSecs,
 		})
 	}
 }

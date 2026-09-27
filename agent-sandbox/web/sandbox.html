@@ -815,7 +815,9 @@
             try {
                 const res = await fetch(`/api/session/config?sessionId=${encodeURIComponent(activeToken)}`);
                 const data = await res.json();
-                if (data.duration_mins) {
+                if (data.remaining_sec !== undefined) {
+                    timeLeft = data.remaining_sec;
+                } else if (data.duration_mins) {
                     timeLeft = data.duration_mins * 60;
                 }
             } catch (err) { console.error("Failed to load session config", err); }

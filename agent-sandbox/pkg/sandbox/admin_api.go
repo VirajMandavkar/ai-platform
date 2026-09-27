@@ -332,10 +332,23 @@ func HandleVerifyCandidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var candName, candEmail, scenarioTitle string
-	err := DB.QueryRow(`SELECT candidate_name, candidate_email, scenario_title FROM interviews WHERE id = ?`, token).
-		Scan(&candName, &candEmail, &scenarioTitle)
+	var candName, candEmail, scenarioTitle, status string
+	var durationMins int
+	var expiresAt sql.NullTime
+	err := DB.QueryRow(`SELECT candidate_name, candidate_email, scenario_title, status, duration_mins, expires_at FROM interviews WHERE id = ?`, token).
+		Scan(&candName, &candEmail, &scenarioTitle, &status, &durationMins, &expiresAt)
 	if err == nil {
+		if status == "COMPLETED" {
+			http.Error(w, "Assessment already completed.", http.StatusForbidden)
+			return
+		}
+		
+		if expiresAt.Valid && time.Now().After(expiresAt.Time) {
+			_, _ = DB.Exec(`UPDATE interviews SET status = 'COMPLETED' WHERE id = ?`, token)
+			http.Error(w, "Assessment time has expired.", http.StatusForbidden)
+			return
+		}
+
 		// Verify email matches HR registration
 		if !strings.EqualFold(strings.TrimSpace(candEmail), email) {
 			http.Error(w, "Candidate email does not match the assessment record for this invite.", http.StatusForbidden)
@@ -343,7 +356,10 @@ func HandleVerifyCandidate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Transition status to IN_PROGRESS upon verification
-		_, _ = DB.Exec(`UPDATE interviews SET status = 'IN_PROGRESS' WHERE id = ? AND status = 'INVITED'`, token)
+		if status == "INVITED" {
+			exp := time.Now().Add(time.Duration(durationMins) * time.Minute)
+			_, _ = DB.Exec(`UPDATE interviews SET status = 'IN_PROGRESS', expires_at = ? WHERE id = ?`, exp, token)
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
