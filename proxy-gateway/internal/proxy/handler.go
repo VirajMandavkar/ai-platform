@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"proxy-gateway/internal/limiter"
 	"proxy-gateway/internal/translator"
 	"strconv"
@@ -46,7 +47,7 @@ func NewHandler(cfg Config) *Handler {
 		FlushInterval: -1,
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			apiKey := pr.Out.Header.Get("x-api-key")
-			if apiKey == "" {
+			if apiKey == "" || apiKey == "dummy" {
 				auth := pr.Out.Header.Get("Authorization")
 				if strings.HasPrefix(auth, "Bearer ") {
 					apiKey = strings.TrimPrefix(auth, "Bearer ")
@@ -54,7 +55,7 @@ func NewHandler(cfg Config) *Handler {
 			}
 			
 			// Round-robin selection if multiple platform keys exist
-			if apiKey == "" && len(cfg.APIKeys) > 0 {
+			if (apiKey == "" || apiKey == "dummy") && len(cfg.APIKeys) > 0 {
 				mu.Lock()
 				apiKey = cfg.APIKeys[keyCounter%len(cfg.APIKeys)]
 				keyCounter++
@@ -69,8 +70,15 @@ func NewHandler(cfg Config) *Handler {
 			} else if strings.HasPrefix(apiKey, "sk-ant") {
 				targetStr = "https://api.anthropic.com"
 			} else if strings.HasPrefix(apiKey, "sk-") {
-				// Default to openai for sk- assuming it might be deepseek or openai
-				targetStr = "https://api.openai.com/v1"
+				// sk- prefix is used by both OpenAI and DeepSeek
+				// Use LLM_PROVIDER env var to disambiguate
+				provider := strings.ToLower(os.Getenv("LLM_PROVIDER"))
+				switch provider {
+				case "deepseek":
+					targetStr = "https://api.deepseek.com"
+				default:
+					targetStr = "https://api.openai.com/v1"
+				}
 			}
 
 			parsedTarget, _ := url.Parse(targetStr)
