@@ -987,7 +987,11 @@
         async function loadWorkspaceTree() {
             const container = document.getElementById('file-tree-container');
             try {
-                const res = await fetch('/api/workspace/tree?sessionId=${encodeURIComponent(activeToken)}');
+                const res = await fetch(`/api/workspace/tree?sessionId=${encodeURIComponent(activeToken)}`);
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(errText);
+                }
                 const nodes = await res.json();
                 container.innerHTML = '';
                 renderTreeNodes(nodes, container);
