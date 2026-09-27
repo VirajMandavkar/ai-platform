@@ -154,7 +154,16 @@ func (m *Manager) GetOrCreateTerminal(sessionID, termID, termType string) (*PTYS
 		}
 	}
 
-	session, err := StartSession(60*time.Minute, "docker", execArgs...)
+	duration := 60 * time.Minute
+	if DB != nil {
+		var mins int
+		err := DB.QueryRow("SELECT duration_mins FROM interviews WHERE id = ?", sessionID).Scan(&mins)
+		if err == nil && mins > 0 {
+			duration = time.Duration(mins) * time.Minute
+		}
+	}
+
+	session, err := StartSession(duration, "docker", execArgs...)
 	if err != nil {
 		log.Printf("[sandbox] failed to start PTY session for %s (term: %s, type: %s): %v", sessionID, termID, termType, err)
 		return nil, err

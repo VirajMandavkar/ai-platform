@@ -308,3 +308,28 @@ func HandleDownloadWorkspace() http.HandlerFunc {
 		_, _ = w.Write(buf.Bytes())
 	}
 }
+
+// HandleGetSessionConfig returns basic public metadata for the active session, like duration
+func HandleGetSessionConfig() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sessionID := r.URL.Query().Get("sessionId")
+		if sessionID == "" {
+			http.Error(w, "Missing sessionId", http.StatusBadRequest)
+			return
+		}
+
+		durationMins := 45
+		if DB != nil {
+			var mins int
+			err := DB.QueryRow("SELECT duration_mins FROM interviews WHERE id = ?", sessionID).Scan(&mins)
+			if err == nil && mins > 0 {
+				durationMins = mins
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"duration_mins": durationMins,
+		})
+	}
+}

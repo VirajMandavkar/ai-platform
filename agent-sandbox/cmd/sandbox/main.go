@@ -117,6 +117,7 @@ func main() {
 	http.HandleFunc("/api/workspace/file", sandbox.HandleGetWorkspaceFile())
 	http.HandleFunc("/api/workspace/verify", sandbox.HandleRunVerification())
 	http.HandleFunc("/api/workspace/download", sandbox.HandleDownloadWorkspace())
+	http.HandleFunc("/api/session/config", sandbox.HandleGetSessionConfig())
 	http.HandleFunc("/api/telemetry/event", telemetry.HandlePostEvent)
 	
 	// Open Telemetry endpoints (could be protected in prod, but keeping simple)

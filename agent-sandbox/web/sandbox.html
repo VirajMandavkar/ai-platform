@@ -804,8 +804,16 @@
         }
 
         // Initialize Workspace & Connect Socket
-        function startProctoredWorkspace() {
+        async function startProctoredWorkspace() {
             isProctoredSessionActive = true;
+
+            try {
+                const res = await fetch(`/api/session/config?sessionId=${encodeURIComponent(activeToken)}`);
+                const data = await res.json();
+                if (data.duration_mins) {
+                    timeLeft = data.duration_mins * 60;
+                }
+            } catch (err) { console.error("Failed to load session config", err); }
 
             // Launch initial Claude Code terminal tab
             createTerminalTab('1', 'claude', 'Claude Code', false);
