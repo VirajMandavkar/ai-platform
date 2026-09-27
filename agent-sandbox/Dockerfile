@@ -32,9 +32,8 @@ WORKDIR /home/sandboxuser/workspace
 # 6. Install the Claude Code CLI agent via npm
 RUN npm install -g @anthropic-ai/claude-code
 
-# 7. Route Claude Code traffic through our Phase 1 Go Proxy
-ENV ANTHROPIC_BASE_URL="http://host.docker.internal:8080"
-ENV ANTHROPIC_API_KEY="dummy-key-because-proxy-handles-auth"
+# 7. LLM env vars are injected at runtime via docker exec -e (see manager.go)
+#    No API keys or URLs are baked into the image.
 
 # Keep the container alive indefinitely
 CMD ["tail", "-f", "/dev/null"]

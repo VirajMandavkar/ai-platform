@@ -90,8 +90,8 @@ func (m *Manager) GetOrCreateTerminal(sessionID, termID, termType string) (*PTYS
 		m.containers[sessionID] = containerName
 	}
 
-	// 2. Fetch Anthropic API key if DB exists and Claude CLI requested
-	apiKey := "dummy"
+	// 2. Fetch API key: DB first, then env fallback
+	apiKey := ""
 	if DB != nil {
 		var dbApiKey string
 		err := DB.QueryRow(`
@@ -109,6 +109,23 @@ func (m *Manager) GetOrCreateTerminal(sessionID, termID, termType string) (*PTYS
 			}
 		}
 	}
+	if apiKey == "" || apiKey == "dummy" {
+		apiKey = os.Getenv("LLM_API_KEY")
+	}
+
+	// Read LLM config from env (never hardcoded)
+	llmBaseURL := os.Getenv("LLM_BASE_URL")
+	if llmBaseURL == "" {
+		llmBaseURL = "http://host.docker.internal:8080"
+	}
+	llmModel := os.Getenv("LLM_MODEL")
+	if llmModel == "" {
+		llmModel = "deepseek-chat"
+	}
+	llmHaikuModel := os.Getenv("LLM_HAIKU_MODEL")
+	if llmHaikuModel == "" {
+		llmHaikuModel = llmModel
+	}
 
 	// 3. Build exec command based on terminal type
 	var execArgs []string
@@ -121,12 +138,16 @@ func (m *Manager) GetOrCreateTerminal(sessionID, termID, termType string) (*PTYS
 			"/bin/bash", "-c", "cd /home/sandboxuser/workspace && exec /bin/bash",
 		}
 	} else {
-		// Claude Code CLI agent
+		// Claude Code CLI agent — env vars from config, never hardcoded
 		execArgs = []string{
 			"exec", "-it",
 			"-e", "TERM=xterm-256color",
-			"-e", "ANTHROPIC_BASE_URL=http://host.docker.internal:8080",
+			"-e", "ANTHROPIC_BASE_URL=" + llmBaseURL,
+			"-e", "ANTHROPIC_AUTH_TOKEN=" + apiKey,
 			"-e", "ANTHROPIC_API_KEY=" + apiKey,
+			"-e", "ANTHROPIC_MODEL=" + llmModel,
+			"-e", "ANTHROPIC_DEFAULT_SONNET_MODEL=" + llmModel,
+			"-e", "ANTHROPIC_DEFAULT_HAIKU_MODEL=" + llmHaikuModel,
 			containerName,
 			"/bin/bash", "-c", "cd /home/sandboxuser/workspace && claude --dangerously-skip-permissions",
 		}
