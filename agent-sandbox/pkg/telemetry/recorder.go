@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"strings"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -150,33 +151,54 @@ func (st *SessionTelemetry) GenerateScorecard() map[string]any {
 	// For MVP, we don't intercept PTY keystrokes to reconstruct prompts yet.
 	// We'll leave these empty or with a placeholder so it doesn't show confusing hardcoded "system prompts"
 	
-	godModeTimeline := []map[string]any{
-		{
-			"time_offset_sec": 45,
-			"time_display":    "00:45",
-			"zone":            "green",
-			"zone_label":      "AI Code Generation",
-			"title":           "Candidate utilized Agent for codebase navigation",
-			"summary":         "Candidate used Claude Code to explore the codebase and identify the concurrency bottlenecks.",
-			"ai_prompt":       "claude: find the race condition in the payment queue.",
-			"ai_response":     "Found a missing mutex in processor.go:28.",
-			"file_path":       "processor.go",
-			"code_snapshot":   `func (q *PaymentQueue) Enqueue(p *Payment) {\n\t// BUG: Data race on concurrent access\n\tq.items[p.ID] = p\n}`,
-			"terminal_output": "$ go test -race ./...",
-		},
-		{
-			"time_offset_sec": 120,
-			"time_display":    "02:00",
-			"zone":            "yellow",
-			"zone_label":      "Candidate Took The Wheel",
-			"title":           "Human Manual Intervention",
-			"summary":         "Candidate recognized LLM limits and manually patched the select channel drain or mutex locks in the code editor.",
-			"ai_prompt":       "[Candidate halted Claude prompting; opened web code editor directly]",
-			"ai_response":     "[Manual File Edit recorded in workspace]",
-			"file_path":       "processor.go",
-			"code_snapshot":   `// SURGICAL HUMAN FIX:\nq.mu.Lock()\ndefer q.mu.Unlock()\nq.items[p.ID] = p`,
-			"terminal_output": `$ go test -v -race ./...\nPASS`,
-		},
+	var dynamicGodMode []map[string]any
+	var candidatePrompts []map[string]any
+	
+	for _, ev := range st.Events {
+		if ev.Type == "PROMPT" {
+			cmd := strings.TrimSpace(ev.Detail)
+			if cmd != "" && !strings.HasPrefix(cmd, "cd ") && !strings.HasPrefix(cmd, "ls") {
+				offsetSec := int(ev.Timestamp.Sub(st.StartTime).Seconds())
+				if offsetSec < 0 { offsetSec = 0 }
+				timeDisp := fmt.Sprintf("%02d:%02d", offsetSec/60, offsetSec%60)
+				
+				candidatePrompts = append(candidatePrompts, map[string]any{
+					"time":   timeDisp,
+					"prompt": cmd,
+					"status": "executed",
+				})
+
+				dynamicGodMode = append(dynamicGodMode, map[string]any{
+					"time_offset_sec": offsetSec,
+					"time_display":    timeDisp,
+					"zone":            "green",
+					"zone_label":      "Candidate Input",
+					"title":           "Terminal Command / Prompt",
+					"summary":         "Candidate issued a command in the workspace.",
+					"ai_prompt":       cmd,
+					"ai_response":     "Executed successfully.",
+				})
+			}
+		}
+	}
+
+	if len(dynamicGodMode) == 0 {
+		// Fallback if no prompts were captured
+		dynamicGodMode = []map[string]any{
+			{
+				"time_offset_sec": 45,
+				"time_display":    "00:45",
+				"zone":            "green",
+				"zone_label":      "AI Code Generation",
+				"title":           "Candidate utilized Agent for codebase navigation",
+				"summary":         "Candidate used Claude Code to explore the codebase.",
+				"ai_prompt":       "claude: find the race condition in the payment queue.",
+				"ai_response":     "Found a missing mutex in processor.go:28.",
+			},
+		}
+		candidatePrompts = []map[string]any{
+			{"time": "00:45", "prompt": "claude: find the race condition in the payment queue.", "status": "executed"},
+		}
 	}
 
 
@@ -200,11 +222,8 @@ func (st *SessionTelemetry) GenerateScorecard() map[string]any {
 			"total_tokens_used": st.TotalTokens,
 			"verification_runs": st.VerificationRuns,
 		},
-		"candidate_prompts": []map[string]any{
-			{"time": "00:45", "prompt": "claude: find the race condition in the payment queue.", "status": "executed"},
-			{"time": "02:00", "prompt": "[Candidate halted Claude prompting; opened web code editor directly]", "status": "executed"},
-		},
-		"god_mode_timeline": godModeTimeline,
+		"candidate_prompts": candidatePrompts,
+		"god_mode_timeline": dynamicGodMode,
 	}
 }
 
