@@ -867,6 +867,53 @@
                     triggerLockout('Candidate exited mandatory fullscreen mode');
                 }
             });
+
+            // Block Right Click (Context Menu)
+            document.addEventListener('contextmenu', (e) => {
+                if (isProctoredSessionActive) {
+                    e.preventDefault();
+                }
+            });
+
+            // Block DevTools shortcuts and Esc
+            document.addEventListener('keydown', (e) => {
+                if (!isProctoredSessionActive) return;
+
+                const key = e.key ? e.key.toUpperCase() : '';
+                
+                // F12
+                if (key === 'F12') {
+                    e.preventDefault();
+                    triggerLockout('Attempted to open Developer Tools (F12)');
+                }
+                
+                // Ctrl+Shift+I / J / C
+                if (e.ctrlKey && e.shiftKey && (key === 'I' || key === 'J' || key === 'C')) {
+                    e.preventDefault();
+                    triggerLockout('Attempted to open Developer Tools');
+                }
+
+                // Ctrl+U
+                if (e.ctrlKey && key === 'U') {
+                    e.preventDefault();
+                    triggerLockout('Attempted to view page source');
+                }
+
+                // Escape
+                if (key === 'ESCAPE') {
+                    e.preventDefault();
+                    // Fullscreen exit is also caught by 'fullscreenchange'
+                }
+            });
+
+            // Prevent accidental refresh / page close
+            window.addEventListener('beforeunload', (e) => {
+                if (isProctoredSessionActive && timeLeft > 1) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
+
         }
 
         // Trigger Alarming Red Screen Lockout
